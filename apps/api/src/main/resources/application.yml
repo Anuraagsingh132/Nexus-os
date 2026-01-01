@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: nexus-os-api
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/nexus_os}
+    username: ${POSTGRES_USER:nexus}
+    password: ${POSTGRES_PASSWORD:SuperStrongPass123!}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    url: ${spring.datasource.url}
+    user: ${spring.datasource.username}
+    password: ${spring.datasource.password}
+    repair-on-migrate: ${SPRING_FLYWAY_REPAIR_ON_MIGRATE:false}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:mock-key}
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        model: ${OLLAMA_CHAT_MODEL:llama3}
+      embedding:
+        model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+    vectorstore:
+      qdrant:
+        host: ${QDRANT_HOST:qdrant}
+        port: ${QDRANT_PORT:6334}
+        collection-name: nexusos-embeddings
+        initialize-schema: false
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.nexusos: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - [%X{traceId:-}] %msg%n"
+
+nexusos:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  internal-api-secret: ${INTERNAL_API_SECRET:dev-internal-secret-change-me}
+  rate-limit:
+    login-ip-per-minute: ${RATE_LIMIT_LOGIN_IP_PER_MINUTE:10}
+    login-email-per-minute: ${RATE_LIMIT_LOGIN_EMAIL_PER_MINUTE:5}
+  purge:
+    retention-days: ${PURGE_RETENTION_DAYS:30}
+  ai:
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:30}
+  minio:
+    url: ${MINIO_URL:http://localhost:9000}
+    access-key: ${MINIO_ROOT_USER:nexus_minio}
+    secret-key: ${MINIO_ROOT_PASSWORD:SuperStrongPass123!}
+    bucket: ${MINIO_BUCKET:nexusos-files}
+    
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+bucket4j:
+  enabled: true
+  cache-to-use: redis-jedis
+  filters:
+    # Login rate limiting is handled by RateLimitFilter.java which uses dual
+    # IP+email keys via Redis. bucket4j's getRemoteAddr() would resolve to the
+    # reverse proxy IP in production, globally rate-limiting all users as one.
+    - cache-name: rate-limit-ws
+      filter-order: 10
+      filter-method: servlet
+      url: /api/v1/ws/ticket
+      http-method: POST
+      rate-limits:
+        - cache-key: "getRemoteUser() != null ? getRemoteUser() : 'anonymous'"
+          bandwidths:
+            - capacity: 30
+              time: 1
+              unit: minutes

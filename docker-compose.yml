@@ -1,0 +1,159 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SuperStrongPass123!}
+      POSTGRES_DB: ${POSTGRES_DB:-nexus_os}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_os"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2023-11-20T22-40-07Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-nexus_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-SuperStrongPass123!}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  createbuckets:
+    image: minio/mc:RELEASE.2023-11-20T16-30-59Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-nexus_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-SuperStrongPass123!}
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO to be ready...';
+      until /usr/bin/mc config host add myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do
+        echo 'MinIO not ready, retrying in 2s...';
+        sleep 2;
+      done;
+      /usr/bin/mc mb myminio/nexusos-files --ignore-existing;
+      /usr/bin/mc anonymous set public myminio/nexusos-files;
+      echo 'Bucket nexusos-files created successfully.';
+      exit 0;
+      "
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.2
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: nexusos-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/nexus_os
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SuperStrongPass123!}
+      MINIO_URL: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-nexus_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-SuperStrongPass123!}
+      MINIO_BUCKET: nexusos-files
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6334
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NEXUSOS_JWT_SECRET: ${NEXUSOS_JWT_SECRET:-nexusos_jwt_secret_key_CHANGE_ME_IN_PRODUCTION}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-mock-key}
+      OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_FLYWAY_REPAIR_ON_MIGRATE: "true"
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        INTERNAL_API_URL: http://api:8080
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+        NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://localhost:1234}
+    container_name: nexusos-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      INTERNAL_API_URL: http://api:8080
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      NEXT_PUBLIC_HOCUSPOCUS_URL: ${NEXT_PUBLIC_HOCUSPOCUS_URL:-ws://localhost:1234}
+    ports:
+      - "3000:3000"
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  hocuspocus:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install @hocuspocus/server @hocuspocus/extension-database yjs && node hocuspocus.server.js"
+    ports:
+      - "1234:1234"
+    environment:
+      - PORT=1234
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-dev-internal-secret-change-me}
+    depends_on:
+      - api
+    volumes:
+      - ./hocuspocus.config.js:/app/hocuspocus.config.js
+      - ./hocuspocus.server.js:/app/hocuspocus.server.js
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  qdrant_data:
+  ollama_data:

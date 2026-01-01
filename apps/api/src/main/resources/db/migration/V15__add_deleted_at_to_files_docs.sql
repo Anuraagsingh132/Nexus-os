@@ -1,0 +1,2 @@
+ALTER TABLE documents ADD COLUMN deleted_at TIMESTAMP;
+ALTER TABLE files ADD COLUMN deleted_at TIMESTAMP;

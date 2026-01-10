@@ -1,0 +1,43 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.vectorstore.qdrant.QdrantVectorStoreAutoConfiguration
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: false
+  data:
+    elasticsearch:
+      repositories:
+        enabled: false
+  ai:
+    openai:
+      api-key: mock-key
+
+nexusos:
+  jwt:
+    secret: testsecretkeythatislongenoughforhs256algorithm1234567890
+    expiration-ms: 86400000
+  internal-api-secret: test-internal-secret
+  cors:
+    allowed-origins: http://localhost:3000
+  rate-limit:
+    login-ip-per-minute: 10
+    login-email-per-minute: 5
+  purge:
+    retention-days: 30
+  ai:
+    timeout-seconds: 30
+
+bucket4j:
+  enabled: false

@@ -1,0 +1,2 @@
+ALTER TABLE audit_logs ADD COLUMN source VARCHAR(30) DEFAULT 'USER';
+ALTER TABLE audit_logs ADD COLUMN metadata TEXT;

@@ -17,11 +17,19 @@ public class TokenBlacklistService {
 
     public void blacklistToken(String token, long durationInSeconds) {
         if (durationInSeconds > 0) {
-            redisTemplate.opsForValue().set(BLACKLIST_PREFIX + token, "true", Duration.ofSeconds(durationInSeconds));
+            try {
+                redisTemplate.opsForValue().set(BLACKLIST_PREFIX + token, "true", Duration.ofSeconds(durationInSeconds));
+            } catch (Exception e) {
+                // Redis unavailable
+            }
         }
     }
 
     public boolean isBlacklisted(String token) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token));
+        try {
+            return Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token));
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

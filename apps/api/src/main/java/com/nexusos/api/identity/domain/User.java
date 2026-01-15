@@ -24,6 +24,9 @@ public class User extends BaseEntity {
     @Column(name = "status", nullable = false)
     private String status = "ACTIVE";
 
+    @Column(name = "role", nullable = false)
+    private String role = "ROLE_USER";
+
     protected User() {}
 
     public User(String email, String passwordHash, String fullName) {
@@ -42,4 +45,6 @@ public class User extends BaseEntity {
     public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 }

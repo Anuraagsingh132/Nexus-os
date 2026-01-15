@@ -81,11 +81,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (userDetails instanceof CustomUserDetails customUserDetails) {
                     String userId = customUserDetails.getUser().getId().toString();
                     String cacheKey = "user:status:" + userId;
-                    status = redisTemplate.opsForValue().get(cacheKey);
+                    try {
+                        status = redisTemplate.opsForValue().get(cacheKey);
+                    } catch (Exception e) {
+                        status = null;
+                    }
                     
                     if (status == null) {
                         status = customUserDetails.getUser().getStatus();
-                        redisTemplate.opsForValue().set(cacheKey, status, 60, TimeUnit.SECONDS);
+                        try {
+                            redisTemplate.opsForValue().set(cacheKey, status, 60, TimeUnit.SECONDS);
+                        } catch (Exception e) {
+                            // Redis unavailable
+                        }
                     }
                 }
                 

@@ -12,6 +12,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nexusos.api.workspace.domain.Membership;
+import com.nexusos.api.workspace.domain.PendingInvite;
+import com.nexusos.api.workspace.domain.Role;
+import com.nexusos.api.workspace.repository.MembershipRepository;
+import com.nexusos.api.workspace.repository.PendingInviteRepository;
+
+import java.util.List;
+
 @Service
 public class AuthService {
 
@@ -22,11 +30,15 @@ public class AuthService {
     private final UserDetailsService userDetailsService;
     private final RefreshTokenService refreshTokenService;
     private final com.nexusos.api.notifications.service.NotificationService notificationService;
+    private final PendingInviteRepository pendingInviteRepository;
+    private final MembershipRepository membershipRepository;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        JwtService jwtService, AuthenticationManager authenticationManager,
                        UserDetailsService userDetailsService, RefreshTokenService refreshTokenService,
-                       com.nexusos.api.notifications.service.NotificationService notificationService) {
+                       com.nexusos.api.notifications.service.NotificationService notificationService,
+                       PendingInviteRepository pendingInviteRepository,
+                       MembershipRepository membershipRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -34,6 +46,8 @@ public class AuthService {
         this.userDetailsService = userDetailsService;
         this.refreshTokenService = refreshTokenService;
         this.notificationService = notificationService;
+        this.pendingInviteRepository = pendingInviteRepository;
+        this.membershipRepository = membershipRepository;
     }
 
     @Transactional
@@ -45,6 +59,15 @@ public class AuthService {
         user.setEmailVerified(true);
         user = userRepository.save(user);
         
+        // Auto-convert pending invites into memberships
+        List<PendingInvite> pendingInvites = pendingInviteRepository.findByEmail(email);
+        for (PendingInvite invite : pendingInvites) {
+            if (membershipRepository.findByWorkspaceIdAndUserId(invite.getWorkspace().getId(), user.getId()).isEmpty()) {
+                membershipRepository.save(new Membership(user, invite.getWorkspace(), Role.MEMBER));
+            }
+            pendingInviteRepository.delete(invite);
+        }
+
         notificationService.createAndSendNotification(
             user.getId(),
             "Welcome to Nexus OS!",

@@ -26,6 +26,12 @@ public class Workspace extends BaseEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "agent_enabled", nullable = false)
+    private Boolean agentEnabled = true;
+
+    @Column(name = "agent_mode", nullable = false, length = 30)
+    private String agentMode = "FULL_AGENT";
+
     protected Workspace() {}
 
     public Workspace(Organization organization, String name, String slug) {
@@ -42,4 +48,8 @@ public class Workspace extends BaseEntity {
     public void setSlug(String slug) { this.slug = slug; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
+    public Boolean getAgentEnabled() { return agentEnabled; }
+    public void setAgentEnabled(Boolean agentEnabled) { this.agentEnabled = agentEnabled; }
+    public String getAgentMode() { return agentMode; }
+    public void setAgentMode(String agentMode) { this.agentMode = agentMode; }
 }

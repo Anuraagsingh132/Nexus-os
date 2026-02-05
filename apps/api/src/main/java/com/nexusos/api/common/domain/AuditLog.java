@@ -20,12 +20,26 @@ public class AuditLog extends BaseEntity {
     @Column(nullable = false)
     private Instant timestamp;
 
+    @Column(name = "source", length = 30)
+    private String source = "USER";
+
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    private String metadata;
+
     protected AuditLog() {}
 
     public AuditLog(String action, UUID userId, Instant timestamp) {
         this.action = action;
         this.userId = userId;
         this.timestamp = timestamp;
+    }
+
+    public AuditLog(String action, UUID userId, Instant timestamp, String source, String metadata) {
+        this.action = action;
+        this.userId = userId;
+        this.timestamp = timestamp;
+        this.source = source;
+        this.metadata = metadata;
     }
 
     public String getAction() {
@@ -50,5 +64,21 @@ public class AuditLog extends BaseEntity {
 
     public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(String metadata) {
+        this.metadata = metadata;
     }
 }

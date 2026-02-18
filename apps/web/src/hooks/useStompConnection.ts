@@ -11,8 +11,9 @@ export function useStompConnection() {
   
   const clientRef = useRef<Client | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectDelayRef = useRef(2000);
-  const maxReconnectDelay = 30000;
+  const attemptRef = useRef(0);
+  const INITIAL_RECONNECT_DELAY = 2000;
+  const MAX_RECONNECT_DELAY = 30000;
   const isMounted = useRef(true);
 
   const clearReconnectTimeout = () => {
@@ -35,10 +36,14 @@ export function useStompConnection() {
 
     clearReconnectTimeout();
 
+    // Exponential backoff with jitter: baseDelay * (1.5 ^ attempt) + Math.random() * 1000
+    attemptRef.current += 1;
+    const computedDelay = INITIAL_RECONNECT_DELAY * Math.pow(1.5, attemptRef.current) + Math.random() * 1000;
+    const finalDelay = Math.min(computedDelay, MAX_RECONNECT_DELAY);
+
     reconnectTimeoutRef.current = setTimeout(() => {
       connect(true);
-      reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 1.5, maxReconnectDelay);
-    }, reconnectDelayRef.current);
+    }, finalDelay);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -52,12 +57,13 @@ export function useStompConnection() {
       
       if (!isMounted.current) return;
 
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8080/ws';
       const newClient = new Client({
-        webSocketFactory: () => new SockJS(`/ws?ticket=${ticket}`),
+        webSocketFactory: () => new SockJS(`${wsUrl}?ticket=${ticket}`),
         connectHeaders: {
           ticket: ticket
         },
-        reconnectDelay: 0, // Disable built-in reconnect to fetch a new ticket every time
+        reconnectDelay: 0, // Handled via explicit ticket-refresh backoff loop
         onConnect: () => {
           if (!isMounted.current) {
             newClient.deactivate();
@@ -65,7 +71,7 @@ export function useStompConnection() {
           }
           setStatus('connected');
           setClient(newClient);
-          reconnectDelayRef.current = 2000; // Reset backoff
+          attemptRef.current = 0; // Reset backoff attempt counter on clean connection
         },
         onWebSocketClose: () => {
           scheduleReconnect();

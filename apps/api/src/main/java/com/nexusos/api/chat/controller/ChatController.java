@@ -15,10 +15,17 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.nexusos.api.ai.agent.service.AgentService;
+import com.nexusos.api.ai.agent.dto.AgentResponse;
+import com.nexusos.api.chat.repository.ChatMessageRepository;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.Map;
+
+import com.nexusos.api.workspace.repository.MembershipRepository;
+import com.nexusos.api.workspace.domain.Membership;
 
 @RestController
 @RequestMapping("/api/v1/workspaces/{workspaceId}/channels/{channelName}/messages")
@@ -33,8 +40,11 @@ public class ChatController {
     private final PasswordEncoder passwordEncoder;
     private final java.util.concurrent.Executor taskExecutor;
     private final com.nexusos.api.notifications.service.NotificationService notificationService;
+    private final MembershipRepository membershipRepository;
+    private final AgentService agentService;
+    private final ChatMessageRepository chatMessageRepository;
 
-    public ChatController(ChatService chatService, SimpMessagingTemplate messagingTemplate, AiService aiService, UserRepository userRepository, PasswordEncoder passwordEncoder, @org.springframework.beans.factory.annotation.Qualifier("taskExecutor") java.util.concurrent.Executor taskExecutor, com.nexusos.api.notifications.service.NotificationService notificationService) {
+    public ChatController(ChatService chatService, SimpMessagingTemplate messagingTemplate, AiService aiService, UserRepository userRepository, PasswordEncoder passwordEncoder, @org.springframework.beans.factory.annotation.Qualifier("taskExecutor") java.util.concurrent.Executor taskExecutor, com.nexusos.api.notifications.service.NotificationService notificationService, MembershipRepository membershipRepository, AgentService agentService, ChatMessageRepository chatMessageRepository) {
         this.chatService = chatService;
         this.messagingTemplate = messagingTemplate;
         this.aiService = aiService;
@@ -42,6 +52,9 @@ public class ChatController {
         this.passwordEncoder = passwordEncoder;
         this.taskExecutor = taskExecutor;
         this.notificationService = notificationService;
+        this.membershipRepository = membershipRepository;
+        this.agentService = agentService;
+        this.chatMessageRepository = chatMessageRepository;
     }
 
     @GetMapping
@@ -81,47 +94,60 @@ public class ChatController {
             if (aiQuery.isEmpty()) aiQuery = "Hello";
             
             // Generate AI response asynchronously to not block the request
-            final String finalQuery = aiQuery;
+            final String cleanContent = aiQuery;
+            final Channel finalChannel = message.getChannel();
+            final UUID finalChannelId = finalChannel.getId();
+            final UUID finalAuthorId = userDetails.getUser().getId();
             taskExecutor.execute(() -> {
                 try {
-                    AiService.AiResult aiResult = aiService.getAiResponse(workspaceId, finalQuery);
+                    AgentResponse agentResponse = agentService.processRequest(workspaceId, finalAuthorId, cleanContent, finalChannelId);
                     
-                    // Create citations appendix
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(aiResult.answer());
-                    if (!aiResult.citations().isEmpty()) {
-                        sb.append("\n\n*Sources:*");
-                        for (Map<String, String> cit : aiResult.citations()) {
-                            sb.append("\n- ").append(cit.get("title"));
+                    String responseText = (agentResponse != null) ? agentResponse.getTextResponse() : null;
+                    
+                    if (responseText == null || responseText.isEmpty()) {
+                        // Fallback to existing RAG Q&A
+                        AiService.AiResult aiResult = aiService.getAiResponse(workspaceId, cleanContent);
+                        
+                        // Create citations appendix
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(aiResult.answer());
+                        if (!aiResult.citations().isEmpty()) {
+                            sb.append("\n\n*Sources:*");
+                            for (Map<String, String> cit : aiResult.citations()) {
+                                sb.append("\n- ").append(cit.get("title"));
+                            }
                         }
+                        responseText = sb.toString();
                     }
                     
                     // Get or create AI user
                     User aiUser = userRepository.findByEmail("ai@nexusos.dev")
                             .orElseGet(() -> userRepository.save(new User("ai@nexusos.dev", passwordEncoder.encode("AI_SECRET_123!"), "Nexus AI Assistant")));
                     
-                    ChatMessage aiMessage = chatService.sendMessage(workspaceId, channelName, aiUser.getId(), sb.toString());
+                    ChatMessage aiMessage = new ChatMessage(finalChannel, aiUser, responseText);
+                    chatMessageRepository.save(aiMessage);
                     ChatMessageDto aiDto = toDto(aiMessage);
                     
                     // Broadcast AI's message
                     messagingTemplate.convertAndSend("/topic/workspaces/" + workspaceId + "/channels/" + channelName, aiDto);
                 } catch (Exception e) {
-                    log.error("AI response generation failed: {}", e.getMessage(), e);
-                    // Send error message to channel
+                    log.error("Agent execution failed: {}", e.getMessage(), e);
                     try {
                         User aiUser = userRepository.findByEmail("ai@nexusos.dev").orElseThrow();
                         ChatMessage errorMsg = chatService.sendMessage(workspaceId, channelName, aiUser.getId(), 
-                            "⚠️ I'm sorry, but I couldn't process that request. (Ensure OPENAI_API_KEY is configured correctly). Error: " + e.getMessage());
+                            "⚠️ I'm sorry, but I couldn't process that request: " + e.getMessage());
                         messagingTemplate.convertAndSend("/topic/workspaces/" + workspaceId + "/channels/" + channelName, toDto(errorMsg));
                     } catch (Exception innerE) {
-                        log.error("Failed to send AI error message to channel: {}", innerE.getMessage(), innerE);
+                        log.error("Failed to send AI error message: {}", innerE.getMessage(), innerE);
                     }
                 }
             });
         }
         
-        // Check for user mentions
-        for (User u : userRepository.findAll()) {
+        // Check for workspace member mentions
+        List<Membership> members = membershipRepository.findByWorkspaceId(workspaceId);
+        for (Membership m : members) {
+            User u = m.getUser();
             if (u.getId().equals(userDetails.getUser().getId())) continue;
             
             String firstName = u.getFullName().contains(" ") ? u.getFullName().split(" ")[0] : u.getFullName();

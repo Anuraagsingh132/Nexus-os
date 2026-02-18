@@ -1,8 +1,9 @@
+import { apiFetch } from './api';
+
 export async function getWsTicket(): Promise<string> {
   try {
-    const response = await fetch('/api/v1/ws/ticket', {
+    const response = await apiFetch('/api/v1/ws/ticket', {
       method: 'POST',
-      credentials: 'include',
     });
 
     if (!response.ok) {

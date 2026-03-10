@@ -67,13 +67,15 @@ public class DocumentIngestionService {
     @org.springframework.scheduling.annotation.Scheduled(fixedRate = 300000)
     public void failStaleIngestions() {
         java.time.Instant tenMinutesAgo = java.time.Instant.now().minusSeconds(600);
-        fileMetadataRepository.findAll().forEach(file -> {
-            if ("PROCESSING".equals(file.getIngestionStatus()) && file.getUpdatedAt() != null && file.getUpdatedAt().isBefore(tenMinutesAgo)) {
+        List<FileMetadata> staleFiles = fileMetadataRepository.findByIngestionStatusAndUpdatedAtBefore("PROCESSING", tenMinutesAgo);
+        if (!staleFiles.isEmpty()) {
+            log.info("Found {} stale document ingestions, marking as FAILED", staleFiles.size());
+            staleFiles.forEach(file -> {
                 file.setIngestionStatus("FAILED");
                 file.setIngestionError("Ingestion timed out — possibly interrupted by a service restart. Please re-upload.");
-                fileMetadataRepository.save(file);
-            }
-        });
+            });
+            fileMetadataRepository.saveAll(staleFiles);
+        }
     }
 
     @Async("taskExecutor")

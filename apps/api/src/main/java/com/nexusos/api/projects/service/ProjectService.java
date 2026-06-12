@@ -6,6 +6,8 @@ import com.nexusos.api.projects.repository.ProjectRepository;
 import com.nexusos.api.projects.repository.TaskRepository;
 import com.nexusos.api.workspace.domain.Workspace;
 import com.nexusos.api.workspace.repository.WorkspaceRepository;
+import com.nexusos.api.identity.domain.User;
+import com.nexusos.api.identity.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +20,14 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
     private final WorkspaceRepository workspaceRepository;
+    private final UserRepository userRepository;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
-    public ProjectService(ProjectRepository projectRepository, TaskRepository taskRepository, WorkspaceRepository workspaceRepository, org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate) {
+    public ProjectService(ProjectRepository projectRepository, TaskRepository taskRepository, WorkspaceRepository workspaceRepository, UserRepository userRepository, org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate) {
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
         this.workspaceRepository = workspaceRepository;
+        this.userRepository = userRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -102,5 +106,60 @@ public class ProjectService {
         );
 
         return taskToMove;
+    }
+
+    @Transactional
+    public Task reassignTask(UUID workspaceId, UUID taskId, UUID assigneeUserId) {
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+            
+        if (!task.getProject().getWorkspace().getId().equals(workspaceId)) {
+            throw new IllegalArgumentException("Task does not belong to the specified workspace");
+        }
+
+        User assignee = null;
+        if (assigneeUserId != null) {
+            assignee = userRepository.findById(assigneeUserId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        }
+        
+        task.setAssignee(assignee);
+        task = taskRepository.save(task);
+
+        messagingTemplate.convertAndSend(
+            "/topic/workspaces/" + workspaceId + "/projects/" + task.getProject().getId() + "/tasks",
+            task
+        );
+
+        return task;
+    }
+
+    @Transactional
+    public List<Task> bulkUpdateTaskStatus(UUID workspaceId, UUID projectId, String fromStatus, String toStatus) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+            
+        if (!project.getWorkspace().getId().equals(workspaceId)) {
+            throw new IllegalArgumentException("Project does not belong to the specified workspace");
+        }
+
+        List<Task> tasks = taskRepository.findByProjectIdOrderByPositionAsc(projectId);
+        List<Task> updatedTasks = new java.util.ArrayList<>();
+        
+        for (Task task : tasks) {
+            if (task.getStatus().equals(fromStatus)) {
+                task.setStatus(toStatus);
+                updatedTasks.add(taskRepository.save(task));
+            }
+        }
+        
+        if (!updatedTasks.isEmpty()) {
+            messagingTemplate.convertAndSend(
+                "/topic/workspaces/" + workspaceId + "/projects/" + projectId + "/tasks",
+                taskRepository.findByProjectIdOrderByPositionAsc(projectId)
+            );
+        }
+        
+        return updatedTasks;
     }
 }

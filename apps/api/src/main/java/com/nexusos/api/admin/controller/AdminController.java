@@ -82,10 +82,8 @@ public class AdminController {
 
     @GetMapping("/stats")
     public Map<String, Object> getWorkspaceStats() {
-        long totalBytes = fileMetadataRepository.findAll().stream()
-                .mapToLong(f -> f.getSizeBytes() != null ? f.getSizeBytes() : 0L)
-                .sum();
-        double storageUsedGB = Math.round(totalBytes / (1024.0 * 1024.0 * 1024.0) * 100.0) / 100.0;
+        Long totalBytes = fileMetadataRepository.sumSizeBytes();
+        double storageUsedGB = Math.round((totalBytes != null ? totalBytes : 0L) / (1024.0 * 1024.0 * 1024.0) * 100.0) / 100.0;
 
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("totalUsers", userRepository.count());
@@ -141,6 +139,7 @@ public class AdminController {
 
     @DeleteMapping("/workspaces/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @org.springframework.transaction.annotation.Transactional
     public void deleteWorkspace(@PathVariable UUID id) {
         Workspace w = workspaceRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
@@ -149,13 +148,9 @@ public class AdminController {
         w.setDeletedAt(now);
         workspaceRepository.save(w);
         
-        // Hard-delete Projects and Tasks
-        List<Project> projects = projectRepository.findByWorkspaceId(id);
-        for (Project project : projects) {
-            List<Task> tasks = taskRepository.findByProjectIdOrderByPositionAsc(project.getId());
-            taskRepository.deleteAll(tasks);
-        }
-        projectRepository.deleteAll(projects);
+        // Bulk delete Projects and Tasks
+        taskRepository.deleteByWorkspaceId(id);
+        projectRepository.deleteByWorkspaceId(id);
         
         // Hard-delete Channels
         List<Channel> channels = channelRepository.findByWorkspaceId(id);

@@ -57,20 +57,27 @@ public class FileController {
             FileMetadata fileMetadata = new FileMetadata(workspace, file.getOriginalFilename(), objectKey, file.getSize(), file.getContentType());
             fileMetadata = fileMetadataRepository.save(fileMetadata);
             
-            // Asynchronously ingest document into VectorStore
-            if (file.getContentType() != null && file.getContentType().equals("application/pdf")) {
-                byte[] bytes = file.getBytes();
-                UUID docId = fileMetadata.getId();
-                String title = fileMetadata.getName();
-                try { documentIngestionService.ingestPdf(bytes, workspaceId, docId, title); } 
-                catch (Exception e) { log.error("PDF Ingestion failed for file '{}': {}", file.getOriginalFilename(), e.getMessage(), e); }
-            } else if (file.getContentType() != null && file.getContentType().startsWith("text/")) {
-                String text = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                UUID docId = fileMetadata.getId();
-                String title = fileMetadata.getName();
-                try { documentIngestionService.ingestText(text, workspaceId, docId, title); } 
-                catch (Exception e) { log.error("Text Ingestion failed for file '{}': {}", file.getOriginalFilename(), e.getMessage(), e); }
-            }
+            // Asynchronously ingest document into VectorStore after transaction commit
+            final UUID docId = fileMetadata.getId();
+            final String title = fileMetadata.getName();
+            final String contentType = file.getContentType();
+            final byte[] fileBytes = file.getBytes();
+
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        if (contentType != null && contentType.equals("application/pdf")) {
+                            try { documentIngestionService.ingestPdf(fileBytes, workspaceId, docId, title); } 
+                            catch (Exception e) { log.error("PDF Ingestion failed for file '{}': {}", title, e.getMessage(), e); }
+                        } else if (contentType != null && contentType.startsWith("text/")) {
+                            String text = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
+                            try { documentIngestionService.ingestText(text, workspaceId, docId, title); } 
+                            catch (Exception e) { log.error("Text Ingestion failed for file '{}': {}", title, e.getMessage(), e); }
+                        }
+                    }
+                }
+            );
             
             // Notify workspace members
             List<com.nexusos.api.workspace.domain.Membership> members = membershipRepository.findByWorkspaceId(workspaceId);
@@ -128,16 +135,25 @@ public class FileController {
             metadata.setIngestionError(null);
             fileMetadataRepository.save(metadata);
             
-            byte[] bytes = minioService.downloadFile(metadata.getObjectKey());
-            
-            if (metadata.getContentType() != null && metadata.getContentType().equals("application/pdf")) {
-                try { documentIngestionService.ingestPdf(bytes, workspaceId, fileId, metadata.getName()); }
-                catch (Exception e) { log.error("PDF Ingestion retry failed: {}", e.getMessage()); }
-            } else if (metadata.getContentType() != null && metadata.getContentType().startsWith("text/")) {
-                String text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-                try { documentIngestionService.ingestText(text, workspaceId, fileId, metadata.getName()); }
-                catch (Exception e) { log.error("Text Ingestion retry failed: {}", e.getMessage()); }
-            }
+            final byte[] bytes = minioService.downloadFile(metadata.getObjectKey());
+            final String contentType = metadata.getContentType();
+            final String name = metadata.getName();
+
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        if (contentType != null && contentType.equals("application/pdf")) {
+                            try { documentIngestionService.ingestPdf(bytes, workspaceId, fileId, name); }
+                            catch (Exception e) { log.error("PDF Ingestion retry failed: {}", e.getMessage()); }
+                        } else if (contentType != null && contentType.startsWith("text/")) {
+                            String text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                            try { documentIngestionService.ingestText(text, workspaceId, fileId, name); }
+                            catch (Exception e) { log.error("Text Ingestion retry failed: {}", e.getMessage()); }
+                        }
+                    }
+                }
+            );
             
             return ResponseEntity.accepted().build();
         } catch (Exception e) {

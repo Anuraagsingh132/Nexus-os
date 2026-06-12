@@ -3,6 +3,7 @@ package com.nexusos.api.projects.domain;
 import com.nexusos.api.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.nexusos.api.identity.domain.User;
 
 @Entity
 @Table(name = "tasks")
@@ -25,6 +26,10 @@ public class Task extends BaseEntity {
     @Column(nullable = false)
     private Integer position;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
+
     protected Task() {}
 
     public Task(Project project, String title, String description, String status, Integer position) {
@@ -45,4 +50,6 @@ public class Task extends BaseEntity {
     public void setStatus(String status) { this.status = status; }
     public Integer getPosition() { return position; }
     public void setPosition(Integer position) { this.position = position; }
+    public User getAssignee() { return assignee; }
+    public void setAssignee(User assignee) { this.assignee = assignee; }
 }

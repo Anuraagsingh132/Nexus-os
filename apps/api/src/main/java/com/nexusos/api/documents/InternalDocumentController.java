@@ -7,14 +7,18 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+import com.nexusos.api.ai.service.DocumentIngestionService;
+
 @RestController
 @RequestMapping("/api/v1/internal/documents")
 public class InternalDocumentController {
 
     private final JdbcTemplate jdbcTemplate;
+    private final DocumentIngestionService documentIngestionService;
 
-    public InternalDocumentController(JdbcTemplate jdbcTemplate) {
+    public InternalDocumentController(JdbcTemplate jdbcTemplate, DocumentIngestionService documentIngestionService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.documentIngestionService = documentIngestionService;
     }
 
     @GetMapping(value = "/{id}/yjs", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
@@ -78,6 +82,11 @@ public class InternalDocumentController {
             return ResponseEntity.badRequest().build();
         }
 
+        String selectQuery = "SELECT workspace_id, title FROM documents WHERE id = ?";
+        java.util.Map<String, Object> docInfo = jdbcTemplate.queryForMap(selectQuery, docId);
+        UUID workspaceId = (UUID) docInfo.get("workspace_id");
+        String title = (String) docInfo.get("title");
+
         String updateQuery = "UPDATE documents SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
         int updated = jdbcTemplate.update(updateQuery, content, docId);
         
@@ -85,6 +94,14 @@ public class InternalDocumentController {
             return ResponseEntity.notFound().build();
         }
         
+        if (content != null && !content.isBlank() && workspaceId != null) {
+            try {
+                documentIngestionService.ingestText(content, workspaceId, docId, title != null ? title : "Untitled Document");
+            } catch (Exception e) {
+                // Log and swallow so content patch doesn't fail
+            }
+        }
+
         return ResponseEntity.ok().build();
     }
 }

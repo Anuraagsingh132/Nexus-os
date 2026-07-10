@@ -7,6 +7,8 @@ import { FileText, Plus, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { apiFetch } from "@/lib/api"
+
 type Doc = {
   id: string
   title: string
@@ -21,15 +23,16 @@ export default function DocumentsPage() {
   const { data: docs = [], isLoading, error } = useQuery<Doc[]>({
     queryKey: ["docs"],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/documents`)
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/documents`)
       if (!res.ok) throw new Error("Failed to fetch docs")
       return res.json()
     },
+    enabled: !!workspaceId
   })
 
   const createDoc = useMutation({
     mutationFn: async (newDoc: Partial<Doc>) => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/documents`, {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newDoc),

@@ -5,6 +5,8 @@ import { Bell, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useStompConnection } from "@/hooks/useStompConnection"
 
+import { apiFetch } from "@/lib/api"
+
 type NotificationDto = {
   id: string
   title: string
@@ -21,7 +23,7 @@ export function NotificationBell() {
 
   useEffect(() => {
     // Fetch initial notifications
-    fetch("/api/v1/notifications", { credentials: "include" })
+    apiFetch("/api/v1/notifications")
       .then((res) => {
         if (res.ok) return res.json()
         return []
@@ -71,17 +73,15 @@ export function NotificationBell() {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
     )
-    fetch(`/api/v1/notifications/${id}/read`, {
+    apiFetch(`/api/v1/notifications/${id}/read`, {
       method: "PATCH",
-      credentials: "include",
     }).catch(console.error)
   }
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
-    fetch("/api/v1/notifications/read-all", {
+    apiFetch("/api/v1/notifications/read-all", {
       method: "PATCH",
-      credentials: "include",
     }).catch(console.error)
   }
 

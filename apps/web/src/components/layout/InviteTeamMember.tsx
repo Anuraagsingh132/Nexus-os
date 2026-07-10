@@ -2,6 +2,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { apiFetch } from "@/lib/api"
 
 export function InviteTeamMember({ workspaceId }: { workspaceId: string }) {
   const [open, setOpen] = useState(false)
@@ -13,7 +14,7 @@ export function InviteTeamMember({ workspaceId }: { workspaceId: string }) {
     if (!workspaceId) return
     setStatus("Sending...")
     try {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/invites`, {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })

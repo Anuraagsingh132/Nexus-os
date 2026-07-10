@@ -6,11 +6,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, CheckCircle2, Wifi, WifiOff, Loader2 } from "lucide-react"
+import { ChevronLeft, CheckCircle2, Wifi, WifiOff, Loader2, Bot, Sparkles, X } from "lucide-react"
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import { getWsTicket } from "@/lib/ws-ticket"
+
+import { apiFetch } from "@/lib/api"
 
 type Doc = {
   id: string
@@ -33,12 +35,28 @@ export default function DocumentEditorPage() {
   const [status, setStatus] = useState('connecting')
   const [isFallback, setIsFallback] = useState(false)
   const [wsTicket, setWsTicket] = useState<string | null>(null)
+  const [sessionUserName, setSessionUserName] = useState<string>("Workspace User")
   const docContentRef = useRef<string | undefined>(undefined)
+  
+  const [askAgentOpen, setAskAgentOpen] = useState(false)
+  const [askAgentQuery, setAskAgentQuery] = useState("")
+  const [askAgentLoading, setAskAgentLoading] = useState(false)
+
+  useEffect(() => {
+    apiFetch('/api/v1/auth/me')
+      .then(res => res.ok ? res.json() : null)
+      .then(user => {
+        if (user && (user.fullName || user.email)) {
+          setSessionUserName(user.fullName || user.email)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const { data: doc } = useQuery<Doc>({
     queryKey: ["doc", documentId],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/documents/${documentId}`)
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/documents/${documentId}`)
       if (!res.ok) throw new Error("Failed to fetch doc")
       return res.json()
     },
@@ -53,15 +71,19 @@ export default function DocumentEditorPage() {
   }, [doc])
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const contentSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const saveDoc = useMutation({
-    mutationFn: async ({ updatedTitle }: { updatedTitle: string }) => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/documents/${documentId}`, {
+    mutationFn: async ({ updatedTitle, updatedContent }: { updatedTitle?: string; updatedContent?: string }) => {
+      const payload: Record<string, string> = {}
+      if (updatedTitle !== undefined) payload.title = updatedTitle
+      if (updatedContent !== undefined) payload.content = updatedContent
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/documents/${documentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: updatedTitle }),
+        body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error("Failed to save doc title")
+      if (!res.ok) throw new Error("Failed to save doc")
       return res.json()
     },
     onSuccess: () => {
@@ -77,13 +99,20 @@ export default function DocumentEditorPage() {
     }, 1000)
   }, [saveDoc])
 
+  const debouncedContentSave = useCallback((newContent: string) => {
+    if (contentSaveTimeoutRef.current) clearTimeout(contentSaveTimeoutRef.current)
+    contentSaveTimeoutRef.current = setTimeout(() => {
+      saveDoc.mutate({ updatedContent: newContent })
+    }, 1000)
+  }, [saveDoc])
+
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value
     setTitle(newTitle)
     debouncedTitleSave(newTitle)
   }
 
-  const currentUser = useMemo(() => ({ name: `User ${Math.floor(Math.random() * 1000)}` }), [])
+  const currentUser = useMemo(() => ({ name: sessionUserName }), [sessionUserName])
 
   useEffect(() => {
     if (isFallback) return
@@ -127,8 +156,13 @@ export default function DocumentEditorPage() {
   }, [documentId, isFallback, wsTicket])
 
   const editor = useEditor({
-    editable: !isFallback,
+    editable: true,
     content: isFallback ? doc?.content : undefined,
+    onUpdate: ({ editor }) => {
+      if (isFallback) {
+        debouncedContentSave(editor.getHTML())
+      }
+    },
     extensions: provider ? [
       StarterKit.configure({ undoRedo: false }),
       Collaboration.configure({
@@ -147,7 +181,7 @@ export default function DocumentEditorPage() {
         class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none dark:prose-invert max-w-none h-full min-h-[500px]',
       },
     },
-  }, [provider, isFallback, doc?.content])
+  }, [provider, isFallback, doc?.content, currentUser, debouncedContentSave])
 
   // Cleanup provider on unmount
   useEffect(() => {
@@ -157,6 +191,32 @@ export default function DocumentEditorPage() {
       }
     }
   }, [provider])
+
+  const handleAskAgent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!askAgentQuery.trim() || !editor) return
+    
+    setAskAgentLoading(true)
+    try {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/ai/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: askAgentQuery, documentId }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.answer) {
+          editor.commands.insertContent(data.answer)
+          setAskAgentOpen(false)
+          setAskAgentQuery("")
+        }
+      }
+    } catch (error) {
+      console.error("Ask Agent failed:", error)
+    } finally {
+      setAskAgentLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-950">
@@ -172,6 +232,14 @@ export default function DocumentEditorPage() {
           />
         </div>
         <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-900/50 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
+            onClick={() => setAskAgentOpen(true)}
+          >
+            <Bot className="w-4 h-4" /> Ask Agent
+          </Button>
           <div className="flex items-center gap-2 text-sm font-medium">
             {status === 'connected' && <span className="text-green-500 flex items-center gap-1"><Wifi className="w-4 h-4" /> Connected</span>}
             {status === 'connecting' && <span className="text-yellow-500 flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin" /> Connecting...</span>}
@@ -193,6 +261,35 @@ export default function DocumentEditorPage() {
           {provider || isFallback ? <EditorContent editor={editor} /> : <div className="flex justify-center items-center h-full"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>}
         </div>
       </div>
+      
+      {askAgentOpen && (
+        <div className="fixed inset-x-0 bottom-0 z-50 p-4 sm:p-6 flex justify-center pointer-events-none">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-200">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <Sparkles className="w-4 h-4 text-indigo-500" /> Ask AI Agent
+              </div>
+              <button onClick={() => setAskAgentOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAskAgent} className="p-4 flex gap-3">
+              <input 
+                type="text" 
+                value={askAgentQuery}
+                onChange={e => setAskAgentQuery(e.target.value)}
+                placeholder="Ask agent to write, outline, or summarize..."
+                className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:text-white"
+                autoFocus
+                disabled={askAgentLoading}
+              />
+              <Button type="submit" disabled={!askAgentQuery.trim() || askAgentLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                {askAgentLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

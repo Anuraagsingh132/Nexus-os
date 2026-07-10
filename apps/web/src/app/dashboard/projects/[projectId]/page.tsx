@@ -16,6 +16,7 @@ type Task = {
   description?: string
   status: "TODO" | "IN_PROGRESS" | "DONE"
   position: number
+  assignee?: { id: string; fullName: string; email: string } | null
 }
 
 export default function ProjectBoard() {
@@ -212,8 +213,18 @@ export default function ProjectBoard() {
                                   {...provided.dragHandleProps}
                                 >
                                   <Card className="cursor-pointer hover:border-indigo-500 transition-colors shadow-sm bg-white dark:bg-slate-950">
-                                    <CardContent className="p-4">
+                                    <CardContent className="p-4 flex flex-col gap-1">
                                       <p className="text-sm font-medium">{task.title}</p>
+                                      {task.assignee && (
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-semibold" title={task.assignee.fullName}>
+                                            {task.assignee.fullName.charAt(0).toUpperCase()}
+                                          </div>
+                                          <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                            {task.assignee.fullName}
+                                          </span>
+                                        </div>
+                                      )}
                                     </CardContent>
                                   </Card>
                                 </div>

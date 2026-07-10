@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts"
 
+import { apiFetch } from "@/lib/api"
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -60,7 +62,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchHealth = () => {
-      fetch('/api/v1/admin/health', { credentials: 'include' })
+      apiFetch('/api/v1/admin/health')
         .then(res => res.json())
         .then(data => {
           if (data && typeof data === 'object' && !data.error) {
@@ -77,7 +79,7 @@ export default function AdminDashboard() {
 
   const fetchUsers = () => {
     setUsersLoading(true)
-    fetch('/api/v1/admin/users', { credentials: 'include' })
+    apiFetch('/api/v1/admin/users')
       .then(res => res.json())
       .then(data => {
         if (data && Array.isArray(data.items)) {
@@ -92,7 +94,7 @@ export default function AdminDashboard() {
 
   const fetchWorkspaces = () => {
     setWorkspacesLoading(true)
-    fetch('/api/v1/admin/workspaces', { credentials: 'include' })
+    apiFetch('/api/v1/admin/workspaces')
       .then(res => res.json())
       .then(data => {
         if (data && Array.isArray(data.items)) {
@@ -107,11 +109,10 @@ export default function AdminDashboard() {
 
   const toggleUserStatus = (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    fetch(`/api/v1/admin/users/${id}/status`, {
+    apiFetch(`/api/v1/admin/users/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
-      credentials: 'include'
     }).then(res => {
       if (res.ok) fetchUsers();
     }).catch(console.error);
@@ -119,9 +120,8 @@ export default function AdminDashboard() {
 
   const deleteWorkspace = (id: string) => {
     if (!confirm('Are you sure you want to delete this workspace?')) return;
-    fetch(`/api/v1/admin/workspaces/${id}`, {
+    apiFetch(`/api/v1/admin/workspaces/${id}`, {
       method: 'DELETE',
-      credentials: 'include'
     }).then(res => {
       if (res.ok) fetchWorkspaces();
     }).catch(console.error);
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchAll = () => {
-      fetch('/api/v1/admin/stats', { credentials: 'include' })
+      apiFetch('/api/v1/admin/stats')
         .then(res => res.json())
         .then(data => {
           if (data && !data.error) {
@@ -143,7 +143,7 @@ export default function AdminDashboard() {
         .catch(console.error)
 
       setActivityLoading(true);
-      fetch('/api/v1/admin/activity', { credentials: 'include' })
+      apiFetch('/api/v1/admin/activity')
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
@@ -157,7 +157,7 @@ export default function AdminDashboard() {
         .catch(console.error)
         .finally(() => setActivityLoading(false))
 
-      fetch('/api/v1/admin/alerts', { credentials: 'include' })
+      apiFetch('/api/v1/admin/alerts')
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) setAlerts(data)

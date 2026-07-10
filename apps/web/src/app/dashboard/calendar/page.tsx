@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Calendar as CalendarIcon, Video, Plus } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { apiFetch } from "@/lib/api"
+
 type Meeting = {
   id: string
   title: string
@@ -20,15 +22,16 @@ export default function CalendarPage() {
   const { data: meetings = [], isLoading, error } = useQuery<Meeting[]>({
     queryKey: ["meetings"],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/meetings`)
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/meetings`)
       if (!res.ok) throw new Error("Failed to fetch meetings")
       return res.json()
     },
+    enabled: !!workspaceId
   })
 
   const createMeeting = useMutation({
     mutationFn: async (newMeeting: Partial<Meeting>) => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/meetings`, {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/meetings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newMeeting),

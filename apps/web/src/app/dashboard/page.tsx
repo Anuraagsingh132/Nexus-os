@@ -11,6 +11,8 @@ type ActivityItem = {
   timestamp: string
 }
 
+import { apiFetch } from "@/lib/api"
+
 export default function DashboardOverview() {
   const router = useRouter()
   const [statsData, setStatsData] = useState({
@@ -24,7 +26,13 @@ export default function DashboardOverview() {
   const [aiQuery, setAiQuery] = useState("")
 
   useEffect(() => {
-    fetch('/api/v1/admin/stats', { credentials: 'include' })
+    const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+    if (!workspaceId) {
+      setActivitiesLoading(false)
+      return
+    }
+
+    apiFetch(`/api/v1/workspaces/${workspaceId}/stats`)
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
@@ -33,7 +41,7 @@ export default function DashboardOverview() {
       })
       .catch(console.error)
 
-    fetch('/api/v1/admin/activity', { credentials: 'include' })
+    apiFetch(`/api/v1/workspaces/${workspaceId}/activity`)
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch activity")
         return res.json()

@@ -5,32 +5,62 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Send, Hash } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import { useStompConnection } from "@/hooks/useStompConnection"
+import { apiFetch } from "@/lib/api"
 
 type ChatMessage = {
   id: string
   content: string
   author: { id: string; email: string; name?: string }
   createdAt: string
+  activityId?: string
+  needsConfirmation?: boolean
 }
 
 export default function ChatPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const initialQuery = searchParams.get("query")
   const channelId = params.channelId as string
   const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
   const queryClient = useQueryClient()
 
   const [draft, setDraft] = useState("")
   const [errorToast, setErrorToast] = useState<string | null>(null)
+  const [aiAnswer, setAiAnswer] = useState<{ query: string; response: string } | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+
+  useEffect(() => {
+    if (initialQuery && workspaceId) {
+      setAiLoading(true)
+      apiFetch(`/api/v1/workspaces/${workspaceId}/ai/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: initialQuery })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("AI Query failed")
+          return res.json()
+        })
+        .then(data => {
+          setAiAnswer({ query: initialQuery, response: data.response || data.answer || JSON.stringify(data) })
+        })
+        .catch(err => {
+          console.error("AI search error:", err)
+        })
+        .finally(() => setAiLoading(false))
+    }
+  }, [initialQuery, workspaceId])
   
   const { data: messages = [], isLoading } = useQuery<ChatMessage[]>({
     queryKey: ["messages", channelId],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/channels/${channelId}/messages`)
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/channels/${channelId}/messages`)
       if (!res.ok) throw new Error("Failed to fetch messages")
       return res.json()
     },
+    enabled: !!workspaceId && !!channelId
   })
 
   const { client: stompClient } = useStompConnection()
@@ -60,7 +90,7 @@ export default function ChatPage() {
         })
       } else {
         // Fallback to REST if WS disconnected
-        const res = await fetch(`/api/v1/workspaces/${workspaceId}/channels/${channelId}/messages`, {
+        const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/channels/${channelId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
@@ -103,6 +133,34 @@ export default function ChatPage() {
     sendMessage.mutate(draft)
   }
 
+  const handleConfirmAction = async (activityId: string) => {
+    if (!workspaceId) return
+    try {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/agent/activities/${activityId}/confirm`, {
+        method: "POST"
+      })
+      if (!res.ok) throw new Error("Confirm failed")
+    } catch (err) {
+      console.error(err)
+      setErrorToast("Failed to confirm action.")
+      setTimeout(() => setErrorToast(null), 3000)
+    }
+  }
+
+  const handleCancelAction = async (activityId: string) => {
+    if (!workspaceId) return
+    try {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/agent/activities/${activityId}/cancel`, {
+        method: "POST"
+      })
+      if (!res.ok) throw new Error("Cancel failed")
+    } catch (err) {
+      console.error(err)
+      setErrorToast("Failed to cancel action.")
+      setTimeout(() => setErrorToast(null), 3000)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-950 relative">
       {errorToast && (
@@ -116,6 +174,20 @@ export default function ChatPage() {
       </header>
       
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {aiLoading && (
+          <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg text-sm text-indigo-700 dark:text-indigo-300 animate-pulse">
+            Nexus AI is processing &quot;{initialQuery}&quot;...
+          </div>
+        )}
+        {aiAnswer && (
+          <div className="p-4 bg-indigo-50/80 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-sm text-indigo-900 dark:text-indigo-200">
+              <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">AI</span>
+              <span>Nexus AI Response for &quot;{aiAnswer.query}&quot;</span>
+            </div>
+            <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{aiAnswer.response}</p>
+          </div>
+        )}
         {isLoading ? (
           <div className="flex justify-center items-center h-full text-slate-500">Loading messages...</div>
         ) : messages.map((msg) => (
@@ -130,7 +202,31 @@ export default function ChatPage() {
                 <span className="font-semibold text-sm">{msg.author?.email}</span>
                 <span className="text-xs text-slate-500">{new Date(msg.createdAt).toLocaleTimeString()}</span>
               </div>
-              <p className="text-slate-800 dark:text-slate-200 mt-1">{msg.content}</p>
+              <p className="text-slate-800 dark:text-slate-200 mt-1 whitespace-pre-wrap">{msg.content}</p>
+              
+              {msg.activityId && msg.needsConfirmation && (
+                <div className="mt-3 p-4 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 shadow-sm">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-3">
+                    The agent requires your confirmation to proceed with this action.
+                  </p>
+                  <div className="flex gap-3">
+                    <Button 
+                      onClick={() => handleConfirmAction(msg.activityId as string)}
+                      className="bg-green-600 hover:bg-green-700 text-white border-transparent"
+                      size="sm"
+                    >
+                      Confirm Action
+                    </Button>
+                    <Button 
+                      onClick={() => handleCancelAction(msg.activityId as string)}
+                      className="bg-red-600 hover:bg-red-700 text-white border-transparent"
+                      size="sm"
+                    >
+                      Cancel Action
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}

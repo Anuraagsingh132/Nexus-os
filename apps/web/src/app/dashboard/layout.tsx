@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Folder, Inbox, Settings, MessageSquare, FileText, ShieldAlert } from "lucide-react"
+import { Folder, Inbox, Settings, MessageSquare, FileText, ShieldAlert, Calendar, Bot } from "lucide-react"
 import { useEffect, useState } from "react"
 import { NotificationBell } from "@/components/layout/NotificationBell"
 import { InviteTeamMember } from "@/components/layout/InviteTeamMember"
@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [workspaceName, setWorkspaceName] = useState("Loading...")
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
+  const [pendingAgentActivities, setPendingAgentActivities] = useState(0)
 
   useEffect(() => {
     fetch("/api/v1/workspaces", { credentials: "include" })
@@ -34,6 +35,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             .then(projectData => {
               if (Array.isArray(projectData)) {
                 setProjects(projectData)
+              }
+            })
+            .catch(console.error)
+            
+          // Fetch pending agent activities for this workspace
+          fetch(`/api/v1/workspaces/${latest.id}/agent/activities`, { credentials: "include" })
+            .then(res => res.ok ? res.json() : [])
+            .then(activities => {
+              if (Array.isArray(activities)) {
+                setPendingAgentActivities(activities.filter((a: { status?: string }) => a.status === 'PENDING_CONFIRMATION').length)
               }
             })
             .catch(console.error)
@@ -84,6 +95,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Link>
           <Link href="/dashboard/files" className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200 transition-colors">
             <Folder className="w-4 h-4" /> Files
+          </Link>
+          
+          <div className="pt-4 pb-2">
+            <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Planning</p>
+          </div>
+          <Link href="/dashboard/calendar" className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200 transition-colors">
+            <Calendar className="w-4 h-4" /> Calendar
+          </Link>
+          
+          <div className="pt-4 pb-2">
+            <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">AI Agent</p>
+          </div>
+          <Link href="/dashboard/agent" className="flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200 transition-colors">
+            <div className="flex items-center gap-2">
+              <Bot className="w-4 h-4" /> Agent Activity
+            </div>
+            {pendingAgentActivities > 0 && (
+              <span className="bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+                {pendingAgentActivities}
+              </span>
+            )}
           </Link>
         </nav>
         <div className="p-4 border-t border-slate-200/60 dark:border-slate-800 space-y-1">

@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button"
 import { FileIcon, UploadCloud, Download, Trash } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
+import { apiFetch } from "@/lib/api"
+
 type FileMetadata = {
   id: string
   fileName: string
   fileSize: number
   contentType: string
   createdAt: string
-  ingestion_status?: 'PENDING' | 'PROCESSING' | 'COMPLETE' | 'FAILED'
+  ingestionStatus?: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'COMPLETE' | 'FAILED'
 }
 
 export default function FilesPage() {
@@ -24,7 +26,7 @@ export default function FilesPage() {
   const { data: files = [], isLoading, error } = useQuery<FileMetadata[]>({
     queryKey: ["files"],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/files`)
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/files`)
       if (!res.ok) throw new Error("Failed to fetch files")
       return res.json()
     },
@@ -35,9 +37,9 @@ export default function FilesPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData()
       formData.append("file", file)
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/files/upload`, {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/files/upload`, {
         method: "POST",
-        body: formData, // do not set Content-Type for FormData, browser handles it
+        body: formData,
       })
       if (!res.ok) throw new Error("Upload failed")
       return res.json()
@@ -49,11 +51,11 @@ export default function FilesPage() {
 
   const retryMutation = useMutation({
     mutationFn: async (fileId: string) => {
-      const res = await fetch(`/api/v1/files/${fileId}/retry-ingestion`, {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/files/${fileId}/retry-ingestion`, {
         method: "POST",
       })
       if (!res.ok) throw new Error("Retry failed")
-      return res.json()
+      return res
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files"] })
@@ -74,7 +76,7 @@ export default function FilesPage() {
 
   const downloadFile = async (fileId: string, fileName: string) => {
     try {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/files/${fileId}/download`)
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/files/${fileId}/download`)
       if (!res.ok) throw new Error("Failed to get download URL")
       const { url } = await res.json()
       
@@ -94,7 +96,7 @@ export default function FilesPage() {
   const deleteFile = async (fileId: string) => {
     if (!confirm("Are you sure you want to delete this file?")) return;
     try {
-      const res = await fetch(`/api/v1/workspaces/${workspaceId}/files/${fileId}`, {
+      const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/files/${fileId}`, {
         method: "DELETE"
       })
       if (!res.ok) throw new Error("Failed to delete file")
@@ -159,7 +161,7 @@ export default function FilesPage() {
                       <Button variant="secondary" size="sm" onClick={() => downloadFile(file.id, file.fileName)}>
                         <Download className="w-4 h-4 mr-2" /> Download
                       </Button>
-                      {file.ingestion_status === 'FAILED' && (
+                      {file.ingestionStatus === 'FAILED' && (
                         <Button variant="default" size="sm" onClick={() => retryMutation.mutate(file.id)}>
                           Retry
                         </Button>
@@ -172,15 +174,15 @@ export default function FilesPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <h3 className="font-semibold text-sm truncate flex-1" title={file.fileName}>{file.fileName}</h3>
-                      {file.ingestion_status && (
+                      {file.ingestionStatus && (
                         <Badge 
-                          variant={file.ingestion_status === 'FAILED' ? 'destructive' : 'default'}
+                          variant={file.ingestionStatus === 'FAILED' ? 'destructive' : 'default'}
                           className={`text-[10px] px-1.5 py-0 h-4 uppercase ${
-                            file.ingestion_status === 'COMPLETE' ? 'bg-green-500 hover:bg-green-600' :
-                            file.ingestion_status === 'FAILED' ? '' : 'bg-yellow-500 hover:bg-yellow-600 text-yellow-950'
+                            file.ingestionStatus === 'SUCCESS' || file.ingestionStatus === 'COMPLETE' ? 'bg-green-500 hover:bg-green-600' :
+                            file.ingestionStatus === 'FAILED' ? '' : 'bg-yellow-500 hover:bg-yellow-600 text-yellow-950'
                           }`}
                         >
-                          {file.ingestion_status}
+                          {file.ingestionStatus}
                         </Badge>
                       )}
                     </div>

@@ -48,6 +48,10 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-ollama-spring-boot-starter")
     implementation("org.springframework.ai:spring-ai-qdrant-store-spring-boot-starter")
     implementation("org.springframework.ai:spring-ai-pdf-document-reader")
+    implementation("com.knuddels:jtokkit:1.1.0")
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
+    implementation("net.javacrumbs.shedlock:shedlock-spring:5.13.0")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:5.13.0")
     
     implementation("io.jsonwebtoken:jjwt-api:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")

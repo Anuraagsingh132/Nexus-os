@@ -9,10 +9,6 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         destination: `${apiUrl}/api/:path*`, // Proxy to Backend
       },
-      {
-        source: '/ws/:path*',
-        destination: `${apiUrl}/ws/:path*`, // Proxy WebSockets
-      },
     ]
   },
   async headers() {

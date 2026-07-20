@@ -57,6 +57,29 @@ nexusos:
     retention-days: ${PURGE_RETENTION_DAYS:30}
   ai:
     timeout-seconds: ${AI_TIMEOUT_SECONDS:30}
+    openai-compatible:
+      base-url: ${OPENAI_COMPATIBLE_BASE_URL:https://api.groq.com/openai}
+      api-key: ${OPENAI_COMPATIBLE_API_KEY:${GROQ_API_KEY:}}
+      model: ${OPENAI_COMPATIBLE_MODEL:llama-3.3-70b-versatile}
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-2.5-flash}
+    mistral:
+      api-key: ${MISTRAL_API_KEY:}
+      model: ${MISTRAL_MODEL:mistral-large-latest}
+    cohere:
+      api-key: ${COHERE_API_KEY:}
+      model: ${COHERE_MODEL:command-r-plus}
+    huggingface:
+      api-key: ${HUGGINGFACE_API_KEY:}
+      model: ${HUGGINGFACE_MODEL:meta-llama/Llama-3.1-8B-Instruct}
+    cloudflare:
+      account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+      api-key: ${CLOUDFLARE_API_KEY:}
+      model: ${CLOUDFLARE_MODEL:@cf/meta/llama-3.1-8b-instruct}
+    zhipu:
+      api-key: ${ZHIPU_API_KEY:}
+      model: ${ZHIPU_MODEL:glm-4-flash}
   minio:
     url: ${MINIO_URL:http://localhost:9000}
     access-key: ${MINIO_ROOT_USER:nexus_minio}

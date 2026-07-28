@@ -112,9 +112,20 @@ nexus-os/
 - **Internal API Secret**: The Hocuspocus Node.js server verifies document permissions by calling the Spring API using a pre-shared internal secret, ensuring users cannot spoof document IDs.
 
 ## Known Limitations / Roadmap
-- **Production Hardening**: While Docker Compose works great for a single node, deploying to Kubernetes will require breaking out the Hocuspocus server into a scalable StatefulSet with Redis PubSub.
-- **Advanced Ingestion**: The current AI pipeline supports plain text and basic markdown. PDF and Word document chunking is planned for the next release.
-- **Multi-region Support**: Data is currently expected to reside in a single Postgres cluster.
+> **Architectural Audit (July 2026):** This project recently underwent a ruthless production architecture audit. It is currently rated as **Early MVP** and is **NOT** ready for production. 
+
+**Critical issues that must be addressed before production deployment:**
+- **CRDT Event Storms**: Hocuspocus currently executes synchronous HTTP PATCH operations to the database on every document change. This must be debounced via a background job to prevent DB deadlocks.
+- **Rate Limit Memory Exhaustion**: The `RateLimitFilter` buffers entire request bodies into JVM memory. This introduces a severe Out-of-Memory (OOM) Denial of Service risk that must be rewritten to parse streams or headers.
+- **WebSocket Scaling & Leaks**: The `WsTicketService` uses an unbounded `ConcurrentHashMap` for fallback tickets, breaking horizontal scaling and causing memory leaks. Hocuspocus lacks a Redis PubSub backplane.
+- **AI Context Overflow**: `AiService` naively concatenates raw documents for RAG without token counting, leading to immediate context window overflows. Calls are also blocking Tomcat threads via `.join()`.
+- **SSRF / IP Whitelisting**: Internal APIs blindly trust the `10.0.0.0/8` subnet, making the cluster vulnerable to privilege escalation via SSRF.
+
+**Planned Roadmap:**
+- Complete rewrite of `RateLimitFilter` and internal API authentication.
+- Implementation of Spring WebFlux for non-blocking AI inference.
+- Redis PubSub integration for horizontal Hocuspocus scaling.
+- Token-aware document chunking (e.g., using JTokkit).
 
 ## License
 MIT License

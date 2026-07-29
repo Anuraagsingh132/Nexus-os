@@ -30,7 +30,8 @@ export default function FilesPage() {
       if (!res.ok) throw new Error("Failed to fetch files")
       return res.json()
     },
-    enabled: !!workspaceId
+    enabled: !!workspaceId,
+    refetchInterval: 3000
   })
 
   const uploadMutation = useMutation({
@@ -161,9 +162,9 @@ export default function FilesPage() {
                       <Button variant="secondary" size="sm" onClick={() => downloadFile(file.id, file.fileName)}>
                         <Download className="w-4 h-4 mr-2" /> Download
                       </Button>
-                      {file.ingestionStatus === 'FAILED' && (
+                      {(file.ingestionStatus === 'FAILED' || file.ingestionStatus === 'PENDING') && (
                         <Button variant="default" size="sm" onClick={() => retryMutation.mutate(file.id)}>
-                          Retry
+                          {retryMutation.isPending ? "Retrying..." : "Retry Ingestion"}
                         </Button>
                       )}
                       <Button variant="destructive" size="sm" onClick={() => deleteFile(file.id)}>

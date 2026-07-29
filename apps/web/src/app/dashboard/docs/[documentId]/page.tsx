@@ -163,19 +163,21 @@ export default function DocumentEditorPage() {
         debouncedContentSave(editor.getHTML())
       }
     },
-    extensions: provider ? [
+    extensions: [
       StarterKit.configure({ undoRedo: false }),
-      Collaboration.configure({
-        document: provider.document,
-      }),
-      CollaborationCaret.configure({
-        provider,
-        user: {
-          name: currentUser.name,
-          color: generateRandomColor(),
-        },
-      }),
-    ] : isFallback ? [StarterKit] : [],
+      ...(provider ? [
+        Collaboration.configure({
+          document: provider.document,
+        }),
+        CollaborationCaret.configure({
+          provider,
+          user: {
+            name: currentUser.name,
+            color: generateRandomColor(),
+          },
+        }),
+      ] : []),
+    ],
     editorProps: {
       attributes: {
         class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none dark:prose-invert max-w-none h-full min-h-[500px]',

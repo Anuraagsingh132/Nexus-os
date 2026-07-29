@@ -4,11 +4,12 @@ services:
   # -------------------------------------------------------------
   - type: web
     name: nexusos-api
-    env: docker
-    dockerfilePath: Dockerfile.api
-    dockerContext: .
+    env: java
+    rootDir: apps/api
     region: singapore
     plan: free
+    buildCommand: chmod +x ./gradlew && ./gradlew bootJar --no-daemon -Dorg.gradle.jvmargs="-Xmx384m"
+    startCommand: java -jar build/libs/api-0.0.1-SNAPSHOT.jar
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE

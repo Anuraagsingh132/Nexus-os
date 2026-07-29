@@ -4,9 +4,12 @@ import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.http.Method;
+import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,12 +31,23 @@ public class MinioService {
             @Value("${nexusos.minio.secret-key:SuperStrongPass123!}") String secretKey,
             @Value("${nexusos.minio.bucket:nexusos-files}") String bucketName) {
         
+        OkHttpClient httpClient = new OkHttpClient.Builder()
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .writeTimeout(3, TimeUnit.SECONDS)
+                .readTimeout(3, TimeUnit.SECONDS)
+                .build();
+
         this.minioClient = MinioClient.builder()
                 .endpoint(url)
                 .credentials(accessKey, secretKey)
+                .httpClient(httpClient)
                 .build();
         this.bucketName = bucketName;
-        
+    }
+
+    @Async
+    @EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void initializeBucketAsync() {
         try {
             boolean found = minioClient.bucketExists(io.minio.BucketExistsArgs.builder().bucket(bucketName).build());
             if (!found) {
@@ -43,7 +57,7 @@ public class MinioService {
                 log.info("MinIO bucket already exists: {}", bucketName);
             }
         } catch (Exception e) {
-            log.warn("MinIO bucket check/creation failed during startup. File operations may fail until MinIO is available. Error: {}", e.getMessage());
+            log.warn("MinIO bucket check skipped during startup: {}", e.getMessage());
         }
     }
 

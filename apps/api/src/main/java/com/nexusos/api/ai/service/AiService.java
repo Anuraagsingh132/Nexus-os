@@ -113,13 +113,11 @@ public class AiService {
 
         String answer;
         try {
-            answer = CompletableFuture.supplyAsync(() -> chatClient.prompt()
+            answer = chatClient.prompt()
                     .system(systemMessage)
                     .user(query)
                     .call()
-                    .content(), taskExecutor)
-                    .orTimeout(timeoutSeconds, TimeUnit.SECONDS)
-                    .join();
+                    .content();
 
             if (answer == null || answer.isBlank()) {
                 answer = "I'm sorry, no response was received from the AI engine.";

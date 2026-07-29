@@ -62,8 +62,8 @@ services:
         sleep 2;
       done;
       /usr/bin/mc mb myminio/nexusos-files --ignore-existing;
-      /usr/bin/mc anonymous set public myminio/nexusos-files;
-      echo 'Bucket nexusos-files created successfully.';
+      /usr/bin/mc anonymous set none myminio/nexusos-files;
+      echo 'Bucket nexusos-files created successfully (private access enforced).';
       exit 0;
       "
 

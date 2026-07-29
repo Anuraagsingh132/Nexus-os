@@ -17,6 +17,7 @@ import java.util.Map;
 public class CacheConfig {
 
     @Bean
+    @org.springframework.context.annotation.Lazy
     public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
         cacheConfigurations.put("rate-limit-ws", RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMinutes(10)));
@@ -27,6 +28,7 @@ public class CacheConfig {
     }
 
     @Bean
+    @org.springframework.context.annotation.Lazy
     public redis.clients.jedis.JedisPool jedisPool(org.springframework.boot.autoconfigure.data.redis.RedisProperties redisProperties) {
         return new redis.clients.jedis.JedisPool(redisProperties.getHost(), redisProperties.getPort());
     }

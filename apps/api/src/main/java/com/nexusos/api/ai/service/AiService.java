@@ -39,7 +39,7 @@ public class AiService {
 
     public AiService(
             ChatClient.Builder chatClientBuilder,
-            VectorStore vectorStore,
+            @org.springframework.context.annotation.Lazy VectorStore vectorStore,
             @Value("${nexusos.ai.timeout-seconds:30}") long timeoutSeconds,
             @Qualifier("taskExecutor") Executor taskExecutor) {
         this.chatClient = chatClientBuilder.build();

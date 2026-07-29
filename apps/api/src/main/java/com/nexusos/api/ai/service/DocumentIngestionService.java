@@ -46,7 +46,7 @@ public class DocumentIngestionService {
     @Value("${spring.ai.vectorstore.qdrant.collection-name:nexusos-embeddings}")
     private String collectionName;
 
-    public DocumentIngestionService(VectorStore vectorStore, IngestionFailureRepository ingestionFailureRepository, FileMetadataRepository fileMetadataRepository) {
+    public DocumentIngestionService(@org.springframework.context.annotation.Lazy VectorStore vectorStore, IngestionFailureRepository ingestionFailureRepository, FileMetadataRepository fileMetadataRepository) {
         this.vectorStore = vectorStore;
         this.ingestionFailureRepository = ingestionFailureRepository;
         this.fileMetadataRepository = fileMetadataRepository;

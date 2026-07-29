@@ -192,6 +192,8 @@ public class DocumentIngestionService {
         try {
             restTemplate.exchange(qdrantRestUrl, HttpMethod.POST, new HttpEntity<>(payload, headers), String.class);
             log.debug("Deleted existing Qdrant vectors for document {}", documentId);
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            log.debug("Qdrant collection '{}' does not exist yet (404), skipping pre-ingestion deletion", collectionName);
         } catch (Exception e) {
             log.warn("Unable to delete existing Qdrant vectors for document {} before ingestion: {}", documentId, e.getMessage());
         }

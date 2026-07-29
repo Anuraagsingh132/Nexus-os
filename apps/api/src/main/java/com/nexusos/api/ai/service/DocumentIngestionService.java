@@ -160,6 +160,9 @@ public class DocumentIngestionService {
 
     private String extractErrorMessage(Throwable e) {
         if (e == null) return "Unknown error during ingestion";
+        if (e instanceof NullPointerException) {
+            return "Embedding engine returned empty vector. Ensure Ollama model 'nomic-embed-text' is pulled ('docker exec -it nexusos-ollama-1 ollama pull nomic-embed-text') or OPENAI_API_KEY is provided.";
+        }
         String msg = e.getMessage();
         if (msg == null || msg.isBlank()) {
             msg = e.getClass().getSimpleName();

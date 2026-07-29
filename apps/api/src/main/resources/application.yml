@@ -93,9 +93,14 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  health:
+    redis:
+      enabled: false
+    qdrant:
+      enabled: false
 
 bucket4j:
-  enabled: true
+  enabled: ${BUCKET4J_ENABLED:false}
   cache-to-use: redis-jedis
   filters:
     # Login rate limiting is handled by RateLimitFilter.java which uses dual

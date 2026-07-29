@@ -30,10 +30,11 @@ services:
   - type: web
     name: nexusos-web
     env: node
+    rootDir: apps/web
     region: singapore
     plan: free
-    buildCommand: cd apps/web && npm install && npm run build
-    startCommand: cd apps/web && npm run start
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production

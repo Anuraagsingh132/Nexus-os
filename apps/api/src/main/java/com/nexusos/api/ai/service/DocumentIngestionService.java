@@ -109,8 +109,9 @@ public class DocumentIngestionService {
             log.info("Successfully ingested PDF '{}' ({} chunks)", title, splitDocuments.size());
             updateFileStatus(documentId, "SUCCESS", null);
         } catch (Exception e) {
-            log.error("Failed to ingest PDF '{}': {}", title, e.getMessage(), e);
-            updateFileStatus(documentId, "FAILED", e.getMessage());
+            String errorMsg = extractErrorMessage(e);
+            log.error("Failed to ingest PDF '{}': {}", title, errorMsg, e);
+            updateFileStatus(documentId, "FAILED", errorMsg);
             throw e;
         }
     }
@@ -136,22 +137,37 @@ public class DocumentIngestionService {
             log.info("Successfully ingested text '{}' ({} chunks)", title, splitDocuments.size());
             updateFileStatus(documentId, "SUCCESS", null);
         } catch (Exception e) {
-            log.error("Failed to ingest text '{}': {}", title, e.getMessage(), e);
-            updateFileStatus(documentId, "FAILED", e.getMessage());
+            String errorMsg = extractErrorMessage(e);
+            log.error("Failed to ingest text '{}': {}", title, errorMsg, e);
+            updateFileStatus(documentId, "FAILED", errorMsg);
             throw e;
         }
     }
 
     @Recover
     public void recoverPdf(Exception e, byte[] pdfBytes, UUID workspaceId, UUID documentId, String title) {
-        log.error("All retries exhausted for PDF ingestion '{}': {}", title, e.getMessage());
-        ingestionFailureRepository.save(new IngestionFailure(workspaceId, documentId, title, "PDF", e.getMessage()));
+        String errorMsg = extractErrorMessage(e);
+        log.error("All retries exhausted for PDF ingestion '{}': {}", title, errorMsg);
+        ingestionFailureRepository.save(new IngestionFailure(workspaceId, documentId, title, "PDF", errorMsg));
     }
 
     @Recover
     public void recoverText(Exception e, String text, UUID workspaceId, UUID documentId, String title) {
-        log.error("All retries exhausted for text ingestion '{}': {}", title, e.getMessage());
-        ingestionFailureRepository.save(new IngestionFailure(workspaceId, documentId, title, "TEXT", e.getMessage()));
+        String errorMsg = extractErrorMessage(e);
+        log.error("All retries exhausted for text ingestion '{}': {}", title, errorMsg);
+        ingestionFailureRepository.save(new IngestionFailure(workspaceId, documentId, title, "TEXT", errorMsg));
+    }
+
+    private String extractErrorMessage(Throwable e) {
+        if (e == null) return "Unknown error during ingestion";
+        String msg = e.getMessage();
+        if (msg == null || msg.isBlank()) {
+            msg = e.getClass().getSimpleName();
+        }
+        if (e.getCause() != null && e.getCause() != e) {
+            msg += " [Cause: " + extractErrorMessage(e.getCause()) + "]";
+        }
+        return msg;
     }
 
     private void deleteExistingVectors(UUID documentId) {

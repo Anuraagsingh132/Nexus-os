@@ -27,7 +27,7 @@ build/
 target/
 *.class
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 
 # Secrets and Env
 .env

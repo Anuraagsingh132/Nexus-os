@@ -1,0 +1,50 @@
+services:
+  # -------------------------------------------------------------
+  # 1. Nexus OS - Spring Boot API Service
+  # -------------------------------------------------------------
+  - type: web
+    name: nexusos-api
+    env: docker
+    dockerfilePath: Dockerfile.api
+    dockerContext: .
+    region: singapore
+    plan: free
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 8080
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nexusos-db
+          property: connectionString
+
+  # -------------------------------------------------------------
+  # 2. Nexus OS - Next.js Web Frontend
+  # -------------------------------------------------------------
+  - type: web
+    name: nexusos-web
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: cd apps/web && npm install && npm run build
+    startCommand: cd apps/web && npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: nexusos-api
+          property: host
+
+databases:
+  # -------------------------------------------------------------
+  # Managed PostgreSQL Database
+  # -------------------------------------------------------------
+  - name: nexusos-db
+    databaseName: nexus_os
+    user: nexus
+    region: singapore
+    plan: free

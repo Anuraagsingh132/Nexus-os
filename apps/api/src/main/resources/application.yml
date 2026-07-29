@@ -35,7 +35,7 @@ spring:
         host: ${QDRANT_HOST:qdrant}
         port: ${QDRANT_PORT:6334}
         collection-name: nexusos-embeddings
-        initialize-schema: false
+        initialize-schema: true
 
 server:
   port: 8080

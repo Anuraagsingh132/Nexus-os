@@ -19,6 +19,10 @@ jobs:
         distribution: 'temurin'
         cache: gradle
         
+    - name: Make gradlew executable
+      working-directory: ./apps/api
+      run: chmod +x gradlew
+
     - name: Build with Gradle
       working-directory: ./apps/api
       run: ./gradlew build

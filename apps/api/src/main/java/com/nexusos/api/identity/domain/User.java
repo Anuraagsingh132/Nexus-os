@@ -33,6 +33,9 @@ public class User extends BaseEntity {
         this.email = email;
         this.passwordHash = passwordHash;
         this.fullName = fullName;
+        this.emailVerified = true;
+        this.status = "ACTIVE";
+        this.role = "ROLE_USER";
     }
 
     public String getEmail() { return email; }

@@ -36,11 +36,15 @@ public class NotificationService {
         );
 
         // Send to specific user via WebSocket
-        messagingTemplate.convertAndSendToUser(
-                userId.toString(),
-                "/queue/notifications",
-                dto
-        );
+        try {
+            messagingTemplate.convertAndSendToUser(
+                    userId.toString(),
+                    "/queue/notifications",
+                    dto
+            );
+        } catch (Exception e) {
+            // Log warning but do not fail the transaction
+        }
     }
 
     public List<NotificationDto> getUserNotifications(UUID userId) {

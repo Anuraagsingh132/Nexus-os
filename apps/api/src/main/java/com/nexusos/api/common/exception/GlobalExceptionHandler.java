@@ -70,7 +70,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         log.warn("Data integrity violation: {}", ex.getMessage());
         String errorMessage = "Conflict";
-        if (ex.getMessage() != null && ex.getMessage().contains("workspaces_organization_id_slug_key")) {
+        if (ex.getMessage() != null && (ex.getMessage().contains("users_email_key") || ex.getMessage().contains("users_email"))) {
+            errorMessage = "Email is already in use";
+        } else if (ex.getMessage() != null && ex.getMessage().contains("workspaces_organization_id_slug_key")) {
             errorMessage = "A workspace with this name already exists";
         }
         return ResponseEntity.status(HttpStatus.CONFLICT)

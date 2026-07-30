@@ -24,6 +24,7 @@ public class HuggingFaceAdapter implements AiProviderAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(HuggingFaceAdapter.class);
     private final RestClient restClient;
+    private final String apiKey;
     private final String model;
     private final ObjectMapper objectMapper;
 
@@ -31,6 +32,7 @@ public class HuggingFaceAdapter implements AiProviderAdapter {
             @Value("${nexusos.ai.huggingface.api-key:}") String apiKey,
             @Value("${nexusos.ai.huggingface.model:meta-llama/Llama-3.1-8B-Instruct}") String model,
             ObjectMapper objectMapper) {
+        this.apiKey = apiKey;
         this.model = model;
         this.objectMapper = objectMapper;
         this.restClient = RestClient.builder()
@@ -42,6 +44,11 @@ public class HuggingFaceAdapter implements AiProviderAdapter {
 
     @Override
     public AiProviderType getType() { return AiProviderType.HUGGING_FACE; }
+
+    @Override
+    public boolean isAvailable() {
+        return apiKey != null && !apiKey.isBlank();
+    }
 
     @Override
     public String generateText(String prompt, String systemPrompt) {

@@ -83,7 +83,13 @@ public class InternalDocumentController {
         }
 
         String selectQuery = "SELECT workspace_id, title FROM documents WHERE id = ?";
-        java.util.Map<String, Object> docInfo = jdbcTemplate.queryForMap(selectQuery, docId);
+        java.util.Map<String, Object> docInfo;
+        try {
+            docInfo = jdbcTemplate.queryForMap(selectQuery, docId);
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            return ResponseEntity.notFound().build();
+        }
+
         UUID workspaceId = (UUID) docInfo.get("workspace_id");
         String title = (String) docInfo.get("title");
 

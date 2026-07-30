@@ -58,16 +58,26 @@ public class TaskRouter {
 
         for (AiProviderType providerType : priorityChain) {
             if (adapters.containsKey(providerType)) {
-                log.debug("Routing task type {} to provider {}", taskType, providerType);
-                return adapters.get(providerType);
+                AiProviderAdapter adapter = adapters.get(providerType);
+                if (adapter.isAvailable()) {
+                    log.debug("Routing task type {} to provider {}", taskType, providerType);
+                    return adapter;
+                }
             }
         }
 
-        // Fail fast if no compatible provider in the failover chain is registered
-        log.error("No compatible AI Provider Adapter available for task type: {}. Available registered adapters: {}",
+        // Fallback: check any registered adapter that is available
+        for (AiProviderAdapter adapter : adapters.values()) {
+            if (adapter.isAvailable()) {
+                log.warn("Priority chain exhausted for task type {}. Falling back to available provider {}", taskType, adapter.getType());
+                return adapter;
+            }
+        }
+
+        log.error("No available AI Provider Adapter for task type: {}. Available registered adapters: {}",
                 taskType, adapters.keySet());
 
-        throw new IllegalStateException("No compatible AI provider available for task type: " + taskType +
+        throw new IllegalStateException("No available AI provider configured for task type: " + taskType +
                 ". Available registered providers: " + adapters.keySet());
     }
 

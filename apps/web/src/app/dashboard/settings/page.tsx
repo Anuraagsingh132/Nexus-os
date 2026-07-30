@@ -17,7 +17,13 @@ export default function SettingsPage() {
   const [modelName, setModelName] = useState("")
   const [loadingAi, setLoadingAi] = useState(true)
 
-  const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+  const [workspaceId, setWorkspaceId] = useState<string>("")
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWorkspaceId(localStorage.getItem("workspaceId") || "")
+    }
+  }, [])
 
   useEffect(() => {
     if (workspaceId) {

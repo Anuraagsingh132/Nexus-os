@@ -15,6 +15,8 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     java.util.Optional<Task> findFirstByProjectWorkspaceIdAndTitleIgnoreCase(UUID workspaceId, String title);
 
+    long countByProjectWorkspaceId(UUID workspaceId);
+
     @Modifying
     @Query("DELETE FROM Task t WHERE t.project.id IN (SELECT p.id FROM Project p WHERE p.workspace.id = :workspaceId)")
     void deleteByWorkspaceId(@Param("workspaceId") UUID workspaceId);

@@ -41,7 +41,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> login(@jakarta.validation.Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         AuthService.AuthTokens tokens = authService.authenticate(request.email(), request.password());
         setAuthCookies(response, tokens);
         return ResponseEntity.ok(Map.of("message", "Login successful"));
@@ -63,20 +63,22 @@ public class AuthController {
     }
     
     private void setAuthCookies(HttpServletResponse response, AuthService.AuthTokens tokens) {
-        Cookie accessCookie = new Cookie("nexusos_access_token", tokens.accessToken());
-        accessCookie.setHttpOnly(true);
-        accessCookie.setPath("/");
-        accessCookie.setMaxAge(900); // 15 minutes
-        // accessCookie.setSecure(true);
+        org.springframework.http.ResponseCookie accessCookie = org.springframework.http.ResponseCookie.from("nexusos_access_token", tokens.accessToken())
+                .httpOnly(true)
+                .path("/")
+                .maxAge(900)
+                .sameSite("Lax")
+                .build();
         
-        Cookie refreshCookie = new Cookie("nexusos_refresh_token", tokens.refreshToken());
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setPath("/api/v1/auth/refresh");
-        refreshCookie.setMaxAge(604800); // 7 days
-        // refreshCookie.setSecure(true);
+        org.springframework.http.ResponseCookie refreshCookie = org.springframework.http.ResponseCookie.from("nexusos_refresh_token", tokens.refreshToken())
+                .httpOnly(true)
+                .path("/api/v1/auth/refresh")
+                .maxAge(604800)
+                .sameSite("Lax")
+                .build();
         
-        response.addCookie(accessCookie);
-        response.addCookie(refreshCookie);
+        response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, refreshCookie.toString());
     }
     
     @PostMapping("/logout")
@@ -94,18 +96,22 @@ public class AuthController {
             refreshTokenService.revoke(refreshToken);
         }
         
-        Cookie accessCookie = new Cookie("nexusos_access_token", null);
-        accessCookie.setHttpOnly(true);
-        accessCookie.setPath("/");
-        accessCookie.setMaxAge(0);
+        org.springframework.http.ResponseCookie accessCookie = org.springframework.http.ResponseCookie.from("nexusos_access_token", "")
+                .httpOnly(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
         
-        Cookie refreshCookie = new Cookie("nexusos_refresh_token", null);
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setPath("/api/v1/auth/refresh");
-        refreshCookie.setMaxAge(0);
+        org.springframework.http.ResponseCookie refreshCookie = org.springframework.http.ResponseCookie.from("nexusos_refresh_token", "")
+                .httpOnly(true)
+                .path("/api/v1/auth/refresh")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
         
-        response.addCookie(accessCookie);
-        response.addCookie(refreshCookie);
+        response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, refreshCookie.toString());
         return ResponseEntity.ok(Map.of("message", "Logout successful"));
     }
     

@@ -35,7 +35,7 @@ public class DocumentService {
     public Document getDocument(UUID workspaceId, UUID documentId) {
         Document document = documentRepository.findById(documentId)
             .orElseThrow(() -> new java.util.NoSuchElementException("Document not found"));
-        if (!document.getWorkspace().getId().equals(workspaceId)) {
+        if (!document.getWorkspace().getId().equals(workspaceId) || document.getDeletedAt() != null) {
             throw new java.util.NoSuchElementException("Document not found in this workspace");
         }
         return document;
@@ -55,7 +55,7 @@ public class DocumentService {
     public Document updateDocument(UUID workspaceId, UUID documentId, String title, String content) {
         Document document = documentRepository.findById(documentId)
             .orElseThrow(() -> new IllegalArgumentException("Document not found"));
-        if (!document.getWorkspace().getId().equals(workspaceId)) {
+        if (!document.getWorkspace().getId().equals(workspaceId) || document.getDeletedAt() != null) {
             throw new java.util.NoSuchElementException("Document not found in this workspace");
         }
         if (title != null) document.setTitle(title);
@@ -63,6 +63,17 @@ public class DocumentService {
         Document saved = documentRepository.save(document);
         triggerIngestionAfterCommit(saved.getContent(), workspaceId, saved.getId(), saved.getTitle());
         return saved;
+    }
+
+    @Transactional
+    public void deleteDocument(UUID workspaceId, UUID documentId) {
+        Document document = documentRepository.findById(documentId)
+            .orElseThrow(() -> new java.util.NoSuchElementException("Document not found"));
+        if (!document.getWorkspace().getId().equals(workspaceId)) {
+            throw new java.util.NoSuchElementException("Document not found in this workspace");
+        }
+        document.setDeletedAt(java.time.Instant.now());
+        documentRepository.save(document);
     }
 
     private void triggerIngestionAfterCommit(String text, UUID workspaceId, UUID documentId, String title) {

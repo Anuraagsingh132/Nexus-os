@@ -9,7 +9,7 @@ services:
     region: singapore
     plan: free
     buildCommand: chmod +x ./gradlew && ./gradlew bootJar --no-daemon -Dorg.gradle.jvmargs="-Xmx384m"
-    startCommand: java -jar build/libs/api-0.0.1-SNAPSHOT.jar
+    startCommand: java -jar build/libs/nexus-os-api-0.0.1-SNAPSHOT.jar
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
@@ -17,16 +17,46 @@ services:
       - key: PORT
         value: 8080
       - key: POSTGRES_URL
-        sync: false
-      - key: POSTGRES_USER
-        sync: false
-      - key: POSTGRES_PASSWORD
-        sync: false
+        fromDatabase:
+          name: nexusos-db
+          property: connectionString
+      - key: INTERNAL_API_SECRET
+        generateValue: true
+      - key: NEXUSOS_JWT_SECRET
+        generateValue: true
       - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
 
   # -------------------------------------------------------------
-  # 2. Nexus OS - Next.js Web Frontend
+  # 2. Nexus OS - Hocuspocus Collaboration WebSocket Service
+  # -------------------------------------------------------------
+  - type: web
+    name: nexusos-hocuspocus
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install @hocuspocus/server @hocuspocus/extension-database yjs
+    startCommand: node hocuspocus.server.js
+    envVars:
+      - key: PORT
+        value: 1234
+      - key: INTERNAL_API_URL
+        fromService:
+          type: web
+          name: nexusos-api
+          property: host
+      - key: INTERNAL_API_SECRET
+        fromService:
+          type: web
+          name: nexusos-api
+          envVarKey: INTERNAL_API_SECRET
+
+  # -------------------------------------------------------------
+  # 3. Nexus OS - Next.js Web Frontend
   # -------------------------------------------------------------
   - type: web
     name: nexusos-web
@@ -44,3 +74,15 @@ services:
           type: web
           name: nexusos-api
           property: host
+      - key: NEXT_PUBLIC_HOCUSPOCUS_URL
+        fromService:
+          type: web
+          name: nexusos-hocuspocus
+          property: host
+
+databases:
+  - name: nexusos-db
+    databaseName: nexus_os
+    user: nexus
+    region: singapore
+    plan: free

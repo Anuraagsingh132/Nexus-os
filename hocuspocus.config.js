@@ -1,7 +1,10 @@
 const { Database } = require('@hocuspocus/extension-database');
 const Y = require('yjs');
 
-const API_URL = process.env.INTERNAL_API_URL || 'http://api:8080';
+let API_URL = process.env.INTERNAL_API_URL || 'http://api:8080';
+if (!API_URL.startsWith('http://') && !API_URL.startsWith('https://')) {
+  API_URL = `https://${API_URL}`;
+}
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || 'dev-internal-secret-change-me';
 
 const internalHeaders = (extra = {}) => ({
@@ -15,10 +18,29 @@ const patchDebounceTimers = new Map();
 const pendingPatches = new Map();
 const DEBOUNCE_MS = 3000;
 
+function extractPlainText(ydoc) {
+  try {
+    const xmlFragment = ydoc.getXmlFragment('prosemirror');
+    const fragmentStr = xmlFragment.toString();
+    if (fragmentStr) {
+      return fragmentStr.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    const defaultFragment = ydoc.getXmlFragment('default');
+    const defaultStr = defaultFragment.toString();
+    if (defaultStr) {
+      return defaultStr.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    const textNode = ydoc.getText('default');
+    return textNode.toString();
+  } catch (e) {
+    console.error('Error extracting text from Ydoc:', e);
+    return '';
+  }
+}
+
 async function flushPlainTextPatch(documentName) {
   const plainText = pendingPatches.get(documentName);
   if (plainText === undefined) return;
-  pendingPatches.delete(documentName);
 
   if (patchDebounceTimers.has(documentName)) {
     clearTimeout(patchDebounceTimers.get(documentName));
@@ -35,7 +57,9 @@ async function flushPlainTextPatch(documentName) {
       body: JSON.stringify({ content: plainText }),
     });
     if (!patchRes.ok) {
-      console.error(`Failed to patch document content ${documentName}: ${patchRes.statusText}`);
+      console.error(`Failed to patch document content ${documentName}: ${patchRes.status} ${patchRes.statusText}`);
+    } else {
+      pendingPatches.delete(documentName);
     }
   } catch (error) {
     console.error(`Error patching plain text for document ${documentName}:`, error);
@@ -75,11 +99,9 @@ module.exports = {
     return { user: { id: 'authenticated' } };
   },
   onDisconnect: async ({ documentName }) => {
-    // Flush any pending plain text patch when a user disconnects
     await flushPlainTextPatch(documentName);
   },
   onDestroy: async ({ documentName }) => {
-    // Flush any pending plain text patch when the document instance is destroyed
     await flushPlainTextPatch(documentName);
   },
   extensions: [
@@ -111,18 +133,16 @@ module.exports = {
           throw new Error(`Failed to store document ${documentName}: ${response.statusText}`);
         }
 
-        // Extract plain text and schedule debounced PATCH (5s interval or disconnect flush)
+        // Extract plain text and schedule debounced PATCH
+        const ydoc = new Y.Doc();
         try {
-          const ydoc = new Y.Doc();
           Y.applyUpdate(ydoc, state);
-          const xmlFragment = ydoc.getXmlFragment('default');
-          const plainText = xmlFragment.toString();
-
-          if (plainText) {
-            scheduleDebouncedPatch(documentName, plainText);
-          }
+          const plainText = extractPlainText(ydoc);
+          scheduleDebouncedPatch(documentName, plainText);
         } catch (error) {
           console.error(`Error parsing Yjs state for ${documentName}:`, error);
+        } finally {
+          ydoc.destroy();
         }
       },
     }),

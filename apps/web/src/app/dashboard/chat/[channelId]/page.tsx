@@ -23,8 +23,14 @@ export default function ChatPage() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get("query")
   const channelId = params.channelId as string
-  const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+  const [workspaceId, setWorkspaceId] = useState<string>("")
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWorkspaceId(localStorage.getItem("workspaceId") || "")
+    }
+  }, [])
 
   const [draft, setDraft] = useState("")
   const [errorToast, setErrorToast] = useState<string | null>(null)

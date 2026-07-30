@@ -63,9 +63,7 @@ public class WorkspaceController {
     @PreAuthorize("@workspaceSecurity.isMember(#workspaceId)")
     public ResponseEntity<Map<String, Object>> getWorkspaceStats(@PathVariable UUID workspaceId) {
         long activeProjects = projectRepository.findByWorkspaceId(workspaceId).size();
-        long totalTasks = projectRepository.findByWorkspaceId(workspaceId).stream()
-                .mapToLong(p -> taskRepository.findByProjectIdOrderByPositionAsc(p.getId()).size())
-                .sum();
+        long totalTasks = taskRepository.countByProjectWorkspaceId(workspaceId);
         long teamMembers = membershipRepository.findByWorkspaceId(workspaceId).size();
         long documents = documentRepository.findByWorkspaceIdOrderByUpdatedAtDesc(workspaceId).size();
 
@@ -80,11 +78,11 @@ public class WorkspaceController {
     @GetMapping("/{workspaceId}/activity")
     @PreAuthorize("@workspaceSecurity.isMember(#workspaceId)")
     public ResponseEntity<List<ActivityDataPointDto>> getWorkspaceActivity(@PathVariable UUID workspaceId) {
-        List<ActivityDataPointDto> activity = userRepository.countUsersPerDayNative().stream().map(row -> {
-            String label = (String) row[0];
-            long value = ((Number) row[1]).longValue();
-            return new ActivityDataPointDto(label, value);
-        }).collect(Collectors.toList());
+        // Return workspace member count metrics
+        long count = membershipRepository.findByWorkspaceId(workspaceId).size();
+        List<ActivityDataPointDto> activity = List.of(
+            new ActivityDataPointDto("Members", count)
+        );
         return ResponseEntity.ok(activity);
     }
 }

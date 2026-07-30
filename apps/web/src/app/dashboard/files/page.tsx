@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,15 @@ type FileMetadata = {
 }
 
 export default function FilesPage() {
-  const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+  const [workspaceId, setWorkspaceId] = useState<string>("")
   const queryClient = useQueryClient()
   const [uploading, setUploading] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWorkspaceId(localStorage.getItem("workspaceId") || "")
+    }
+  }, [])
 
   const { data: files = [], isLoading, error } = useQuery<FileMetadata[]>({
     queryKey: ["files"],

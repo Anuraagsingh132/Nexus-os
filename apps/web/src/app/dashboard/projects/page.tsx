@@ -17,7 +17,7 @@ export default function ProjectsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const workspaceId = localStorage.getItem("workspaceId")
+    const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") : null
     if (!workspaceId) {
       setLoading(false)
       return

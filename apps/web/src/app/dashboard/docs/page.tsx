@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,8 +18,14 @@ type Doc = {
 }
 
 export default function DocumentsPage() {
-  const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+  const [workspaceId, setWorkspaceId] = useState<string>("")
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWorkspaceId(localStorage.getItem("workspaceId") || "")
+    }
+  }, [])
 
   const { data: docs = [], isLoading, error } = useQuery<Doc[]>({
     queryKey: ["docs"],

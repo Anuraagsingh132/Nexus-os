@@ -29,6 +29,7 @@ public class OpenAiCompatibleAdapter implements AiProviderAdapter {
     private static final Logger log = LoggerFactory.getLogger(OpenAiCompatibleAdapter.class);
 
     private final RestClient restClient;
+    private final String apiKey;
     private final String model;
     private final ObjectMapper objectMapper;
 
@@ -37,6 +38,7 @@ public class OpenAiCompatibleAdapter implements AiProviderAdapter {
             @Value("${nexusos.ai.openai-compatible.api-key:}") String apiKey,
             @Value("${nexusos.ai.openai-compatible.model:llama-3.3-70b-versatile}") String model,
             ObjectMapper objectMapper) {
+        this.apiKey = apiKey;
         this.model = model;
         this.objectMapper = objectMapper;
         this.restClient = RestClient.builder()
@@ -49,6 +51,11 @@ public class OpenAiCompatibleAdapter implements AiProviderAdapter {
     @Override
     public AiProviderType getType() {
         return AiProviderType.OPENAI;
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return apiKey != null && !apiKey.isBlank() && !"mock-key".equals(apiKey);
     }
 
     @Override

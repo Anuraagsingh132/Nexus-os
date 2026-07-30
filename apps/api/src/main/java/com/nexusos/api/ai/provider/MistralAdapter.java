@@ -20,6 +20,7 @@ public class MistralAdapter implements AiProviderAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(MistralAdapter.class);
     private final RestClient restClient;
+    private final String apiKey;
     private final String model;
     private final ObjectMapper objectMapper;
 
@@ -27,6 +28,7 @@ public class MistralAdapter implements AiProviderAdapter {
             @Value("${nexusos.ai.mistral.api-key:}") String apiKey,
             @Value("${nexusos.ai.mistral.model:mistral-small-latest}") String model,
             ObjectMapper objectMapper) {
+        this.apiKey = apiKey;
         this.model = model;
         this.objectMapper = objectMapper;
         this.restClient = RestClient.builder()
@@ -38,6 +40,11 @@ public class MistralAdapter implements AiProviderAdapter {
 
     @Override
     public AiProviderType getType() { return AiProviderType.MISTRAL; }
+
+    @Override
+    public boolean isAvailable() {
+        return apiKey != null && !apiKey.isBlank();
+    }
 
     @Override
     public String generateText(String prompt, String systemPrompt) {

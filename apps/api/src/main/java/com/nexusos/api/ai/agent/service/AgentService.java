@@ -79,7 +79,6 @@ public class AgentService {
         return java.util.concurrent.CompletableFuture.completedFuture(processRequest(workspaceId, userId, userMessage, sourceChannelId));
     }
 
-    @Transactional
     public AgentResponse processRequest(UUID workspaceId, UUID userId, String userMessage, UUID sourceChannelId) {
         log.info("Processing agent request for workspace={}, user={}", workspaceId, userId);
 
@@ -170,7 +169,7 @@ public class AgentService {
             // Parse arguments
             Map<String, Object> arguments;
             try {
-                arguments = objectMapper.convertValue(parsed.path("arguments"), Map.class);
+                arguments = objectMapper.convertValue(parsed.path("arguments"), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
             } catch (Exception e) {
                 arguments = Collections.emptyMap();
             }
@@ -290,7 +289,7 @@ public class AgentService {
         try {
             arguments = objectMapper.readValue(
                     activity.getArgumentsJson() != null ? activity.getArgumentsJson() : "{}",
-                    Map.class
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
             );
         } catch (Exception e) {
             arguments = Collections.emptyMap();

@@ -28,8 +28,14 @@ export default function DocumentEditorPage() {
   const params = useParams()
   const router = useRouter()
   const documentId = params.documentId as string
-  const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+  const [workspaceId, setWorkspaceId] = useState<string>("")
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWorkspaceId(localStorage.getItem("workspaceId") || "")
+    }
+  }, [])
   
   const [title, setTitle] = useState("Loading...")
   const [status, setStatus] = useState('connecting')

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarIcon, Video, Plus } from "lucide-react"
@@ -16,8 +17,14 @@ type Meeting = {
 }
 
 export default function CalendarPage() {
-  const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+  const [workspaceId, setWorkspaceId] = useState<string>("")
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWorkspaceId(localStorage.getItem("workspaceId") || "")
+    }
+  }, [])
 
   const { data: meetings = [], isLoading, error } = useQuery<Meeting[]>({
     queryKey: ["meetings"],

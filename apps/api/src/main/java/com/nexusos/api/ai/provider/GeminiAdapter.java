@@ -48,6 +48,11 @@ public class GeminiAdapter implements AiProviderAdapter {
     }
 
     @Override
+    public boolean isAvailable() {
+        return apiKey != null && !apiKey.isBlank() && !"mock-key".equals(apiKey);
+    }
+
+    @Override
     public String generateText(String prompt, String systemPrompt) {
         try {
             Map<String, Object> body = Map.of(

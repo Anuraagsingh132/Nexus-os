@@ -18,7 +18,7 @@ export default function NewProjectPage() {
     e.preventDefault()
     if (!name.trim()) return
 
-    const workspaceId = localStorage.getItem("workspaceId")
+    const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") : null
     if (!workspaceId) {
       setError("No workspace selected")
       return

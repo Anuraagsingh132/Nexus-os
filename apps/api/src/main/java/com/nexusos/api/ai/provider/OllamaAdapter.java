@@ -25,6 +25,11 @@ public class OllamaAdapter implements AiProviderAdapter {
     }
 
     @Override
+    public boolean isAvailable() {
+        return true; // Local Ollama fallback candidate
+    }
+
+    @Override
     public String generateText(String prompt, String systemPrompt) {
         try {
             String response = chatClient.prompt()

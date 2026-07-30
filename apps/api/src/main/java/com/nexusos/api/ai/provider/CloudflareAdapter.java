@@ -24,6 +24,7 @@ public class CloudflareAdapter implements AiProviderAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(CloudflareAdapter.class);
     private final RestClient restClient;
+    private final String apiKey;
     private final String model;
     private final ObjectMapper objectMapper;
 
@@ -32,6 +33,7 @@ public class CloudflareAdapter implements AiProviderAdapter {
             @Value("${nexusos.ai.cloudflare.api-key:}") String apiKey,
             @Value("${nexusos.ai.cloudflare.model:@cf/meta/llama-3.1-8b-instruct}") String model,
             ObjectMapper objectMapper) {
+        this.apiKey = apiKey;
         this.model = model;
         this.objectMapper = objectMapper;
         this.restClient = RestClient.builder()
@@ -43,6 +45,11 @@ public class CloudflareAdapter implements AiProviderAdapter {
 
     @Override
     public AiProviderType getType() { return AiProviderType.CLOUDFLARE_WORKERS_AI; }
+
+    @Override
+    public boolean isAvailable() {
+        return apiKey != null && !apiKey.isBlank();
+    }
 
     @Override
     public String generateText(String prompt, String systemPrompt) {

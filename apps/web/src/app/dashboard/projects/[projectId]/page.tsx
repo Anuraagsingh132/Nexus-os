@@ -28,7 +28,7 @@ export default function ProjectBoard() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const wid = localStorage.getItem("workspaceId")
+    const wid = typeof window !== "undefined" ? localStorage.getItem("workspaceId") : null
     if (wid) {
       setWorkspaceId(wid)
       fetch(`/api/v1/workspaces/${wid}/projects/${projectId}`, { credentials: "include" })

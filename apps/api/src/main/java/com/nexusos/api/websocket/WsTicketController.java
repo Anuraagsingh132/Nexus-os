@@ -31,6 +31,9 @@ public class WsTicketController {
 
     @PostMapping("/api/v1/ws/ticket")
     public ResponseEntity<Map<String, String>> generateTicket(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null || userDetails.getUser() == null) {
+            return ResponseEntity.status(401).build();
+        }
         String ticket = ticketService.generateTicket(userDetails.getUser().getId().toString());
         return ResponseEntity.ok(Map.of("ticket", ticket));
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { apiFetch } from "@/lib/api"
 import { Bot, CheckCircle, XCircle, Clock, AlertTriangle, ShieldQuestion, Check, X, Loader2 } from "lucide-react"
 
@@ -25,10 +25,15 @@ export default function AgentActivityPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<AgentActivityStatus | 'ALL'>('ALL')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [workspaceId, setWorkspaceId] = useState<string>("")
 
-  const workspaceId = typeof window !== "undefined" ? localStorage.getItem("workspaceId") || "" : ""
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWorkspaceId(localStorage.getItem("workspaceId") || "")
+    }
+  }, [])
 
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
     if (!workspaceId) return
     try {
       const res = await apiFetch(`/api/v1/workspaces/${workspaceId}/agent/activities`)
@@ -41,13 +46,13 @@ export default function AgentActivityPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [workspaceId])
 
   useEffect(() => {
     fetchActivities()
     const interval = setInterval(fetchActivities, 10000)
     return () => clearInterval(interval)
-  }, [workspaceId])
+  }, [fetchActivities])
 
   const handleAction = async (id: string, action: 'confirm' | 'cancel') => {
     setActionLoading(id)

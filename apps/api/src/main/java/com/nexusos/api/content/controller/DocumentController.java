@@ -43,6 +43,13 @@ public class DocumentController {
     public Document updateDocument(@PathVariable UUID workspaceId, @PathVariable UUID documentId, @RequestBody UpdateDocumentRequest request) {
         return documentService.updateDocument(workspaceId, documentId, request.title(), request.content());
     }
+
+    @DeleteMapping("/{documentId}")
+    @PreAuthorize("@workspaceSecurity.isContributor(#workspaceId)")
+    public ResponseEntity<Void> deleteDocument(@PathVariable UUID workspaceId, @PathVariable UUID documentId) {
+        documentService.deleteDocument(workspaceId, documentId);
+        return ResponseEntity.noContent().build();
+    }
 }
 
 record CreateDocumentRequest(String title, String content) {}
